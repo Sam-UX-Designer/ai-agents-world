@@ -52,13 +52,13 @@
    * needs editing: every surface below reads these.
    *
    *   light frost   28px / 62%
-   *   heavy frost   58px / 88%   <- current
+   *   deep frost    88px / 50%   <- current: heavy blur, light tint
    *   nearly solid  70px / 96%
    */
-  --glass-blur: 58px;
-  --glass-blur-sm: 44px;
-  --glass-tint: 88%;
-  --glass-tint-2: 92%;
+  --glass-blur: 88px;
+  --glass-blur-sm: 68px;
+  --glass-tint: 50%;
+  --glass-tint-2: 54%;
   --glass-saturate: 180%;
 }
 
