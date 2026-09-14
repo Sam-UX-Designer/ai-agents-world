@@ -1,108 +1,155 @@
 # Deployment
 
-Two services, two hosts. They are separated because they have genuinely
-different runtime needs, not as a preference.
+Two services, because they have genuinely different runtime needs.
 
 | Part | Host | Why |
 |---|---|---|
 | `apps/web` | Vercel | A Next.js app. This is what Vercel is for. |
-| `apps/api` | Railway, Render or Fly | Holds WebSockets open and runs agents for minutes at a time. Vercel's functions do neither. |
-| Postgres | Neon or Supabase | Managed, with branching for preview environments. |
+| `apps/api` | Render (or Railway / Fly) | Holds WebSockets open and runs agents for minutes at a time. Vercel's functions do neither. |
+| Postgres | Comes with Render | Managed, and created for you by `render.yaml`. |
 
-## Vercel
+You can ship the web app on its own. Without the API it runs in preview mode:
+every screen renders from the real tool catalogue, but agents cannot run and
+nothing can be connected. Part 2 below turns that on.
 
-Vercel hosts `apps/web` only.
+---
 
-**Set Root Directory to `apps/web`** in Project → Settings → Build and
-Deployment. `apps/web/vercel.json` handles everything else, including the
-output directory, and a `vercel.json` overrides whatever the dashboard says -
-so there is nothing else to configure.
+## Part 1 — the web app on Vercel
 
-### The "output directory was not found" failure
+### The error you are seeing
 
 ```
-Error: The Next.js output directory "apps/web/.next" was not found at
+The Next.js output directory "apps/web/.next" was not found at
 "/vercel/path0/apps/web/apps/web/.next"
 ```
 
-Read the path: `apps/web` appears twice. Root Directory was already `apps/web`,
-and the Output Directory setting said `apps/web/.next` on top of it, so Vercel
-looked one folder too deep.
+**In one word:** path.
 
-Note what this failure is *not*. The build itself succeeded - the log shows
+**In one line:** Root Directory is already `apps/web`, and an Output Directory
+setting adds `apps/web/.next` on top of it, so Vercel looks inside
+`apps/web/apps/web/` and finds nothing.
+
+Note what this is *not*. The build itself succeeded - the log shows
 `Compiled successfully`, nine pages generated and the full route table. Only
-the step that collects the finished output looked in the wrong place. Nothing
-was wrong with Next.js, and changing framework would not have helped.
+the step that collects the finished output looked in the wrong folder. Nothing
+is wrong with Next.js.
 
-The fix is in the repository now: `apps/web/vercel.json` sets
-`"outputDirectory": ".next"`, relative to the root directory, which is correct
-in both layouts. If a stale **Output Directory** override is still set in
-Project → Settings → Build and Deployment, clear it.
+### The fix
 
-### Why the earlier build was failing
+1. Vercel → your project → **Settings** → **Build and Deployment**
+2. Find **Output Directory**. It has `apps/web/.next` typed into it.
+3. **Clear that field** and save. Leave it empty.
+4. Check **Root Directory** just above it says `apps/web`.
+5. **Deployments** → newest → ⋯ → **Redeploy**.
 
-`apps/web` imports `@agents-world/shared`, a workspace package whose
-`package.json` points at `./dist/index.js`. `dist/` is gitignored, so on a
-fresh clone it does not exist. Running `next build` alone gave:
+Step 3 is the one that matters. `apps/web/vercel.json` already specifies the
+right output directory; the dashboard value was fighting it.
 
+If it fails again, check which commit deployed - the Deployments list shows
+the commit next to each build. It must be on `claude/keen-dirac-jjcw14`, at
+`Ease the frost back to 78-85%` or later.
+
+---
+
+## Part 2 — the API on Render
+
+Fifteen minutes, no credit card. Render is used here because it is the
+shortest path to a long-lived Node process with a Postgres beside it; Railway
+and Fly work the same way.
+
+### Before you start
+
+Generate the encryption key. In your terminal:
+
+```bash
+openssl rand -base64 32
 ```
-Module not found: Can't resolve '@agents-world/shared'
-```
 
-`apps/web/package.json`'s own `build` script builds the shared package first,
-which is what Vercel runs, so this is handled.
+Copy the line it prints. It encrypts the Gmail and Slack tokens your agents
+use, so treat it like a password: paste it into Render only, never into the
+repository or a chat.
 
-### The API does not go on Vercel
+You also need your Anthropic API key from
+[console.anthropic.com](https://console.anthropic.com) → API Keys.
 
-`apps/api` holds WebSockets open and runs agents for minutes at a time.
-Vercel's functions do neither. Deploy it to Railway, Render or Fly, then point
-the web app at it with the `API_URL` variable below.
+### Deploy
 
-Until you do, the deployed site will load but every screen will be empty - the
-browser is calling an API that is not there yet. That is expected, not a bug.
+1. Go to [render.com](https://render.com) and sign in with GitHub.
+2. **New** → **Blueprint**.
+3. Pick **`Sam-UX-Designer/ai-agents-world`**, branch
+   `claude/keen-dirac-jjcw14`.
+4. Render reads `render.yaml` and shows two services: `agents-world-api` and
+   `agents-world-db`. It then asks for three values:
 
-### Environment variables
+   | Field | What to paste |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | Your Anthropic key |
+   | `TOKEN_ENCRYPTION_KEY` | The `openssl` line from above |
+   | `APP_URL` | Your Vercel URL, e.g. `https://ai-agents-world.vercel.app` — https, no trailing slash |
 
-Set these in **Vercel → Project → Settings → Environment Variables**. Never in
-the repository.
+5. **Apply**. First build takes 3-5 minutes. It installs, compiles, and runs
+   the database migrations for you.
+6. When it goes live, Render shows a URL like
+   `https://agents-world-api.onrender.com`. Open `<that URL>/health` — it
+   should answer `{"ok":true}`.
 
-| Variable | Value |
-|---|---|
-| `API_URL` | The public URL of the deployed API, e.g. `https://api.yourdomain.com` |
+### Point the web app at it
 
-`API_URL` is the one the frontend genuinely needs. `next.config.ts` rewrites
-`/api/*` to it, which keeps the session cookie first-party and keeps the API's
-hostname out of the browser. Without it the site builds and deploys, then every
-request 404s against Vercel itself - a failure that looks like a bug in the app
-rather than missing configuration.
+1. Vercel → **Settings** → **Environment Variables**
+2. Add `API_URL` = your Render URL (no trailing slash)
+3. **Redeploy** the web app.
 
-## API host (Railway / Render)
+That is the whole connection. The browser only ever talks to your Vercel
+domain; Next.js forwards `/api/*` to Render behind the scenes, which is why
+the session cookie stays first-party and the API's hostname never reaches the
+browser.
 
-Every secret lives here, not on Vercel, because this is the process that uses
-them. See `apps/api/.env.example` for the full list. The ones without which the
-service will not start:
+You now have working sign-in, real agent runs, and saved history.
 
-| Variable | How to get it |
-|---|---|
-| `DATABASE_URL` | Your Postgres provider |
-| `ANTHROPIC_API_KEY` | console.anthropic.com |
-| `TOKEN_ENCRYPTION_KEY` | `openssl rand -base64 32` |
-| `SESSION_SECRET` | `openssl rand -base64 48` |
+### One thing to expect
 
-Optional, per feature:
+Render's free instance sleeps after about 15 minutes idle, so the first
+request after a quiet spell takes ~30 seconds to wake it. Agent runs survive
+this - they are persisted, not held in memory - but it feels slow. Render's
+cheapest paid instance removes it.
 
-| Variable | Enables |
-|---|---|
-| `ELEVENLABS_API_KEY` | Agents speaking aloud. Without it they reply in text and nothing breaks. |
-| `GOOGLE_CLIENT_ID` / `_SECRET` | Gmail and Calendar |
-| `SLACK_CLIENT_ID` / `_SECRET` | Slack |
-| `MICROSOFT_CLIENT_ID` / `_SECRET` | Microsoft sign-in |
+---
 
-**The ElevenLabs key belongs on the API host, not on Vercel.** The
-text-to-speech call is made server-side on purpose, so the key never reaches a
-browser. A key set in Vercel's environment is only visible to Vercel-hosted
-code, which is not where that call runs.
+## Part 3 — connecting Gmail, Calendar and Slack
 
-Config is validated at boot in `apps/api/src/config.ts`, so a missing secret
-stops the process immediately with a message naming it, rather than surfacing
-hours later as an agent failing mid-run.
+Optional, and separate from everything above. Until you do this, the Tools
+screen honestly reports that connecting needs credentials rather than offering
+a button that fails.
+
+**Google** ([console.cloud.google.com](https://console.cloud.google.com) →
+APIs & Services → Credentials → OAuth client ID → Web application):
+
+- Authorised redirect URI: `https://<your-render-url>/auth/google/callback`
+- Add to Render: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_REDIRECT_URI`
+
+Gmail and Calendar are *restricted scopes*. Google requires a verification
+review before accounts outside your own test list can use them, and that
+review takes weeks. Start it early. Your own account works immediately once
+you add it as a test user.
+
+**Slack** ([api.slack.com/apps](https://api.slack.com/apps) → Create New App →
+OAuth & Permissions):
+
+- Redirect URL: `https://<your-render-url>/auth/slack/callback`
+- Add to Render: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`,
+  `SLACK_REDIRECT_URI`
+
+Restart the Render service after adding either set. The Tools screen picks
+them up on its own - the Connect buttons become live.
+
+---
+
+## Secrets
+
+Every key above goes in Render or Vercel's environment settings. None of them
+belong in the repository, in a commit, or in a chat message. `.env` is
+gitignored for exactly this reason.
+
+If a key has ever been pasted somewhere it should not have been, rotate it
+rather than hoping.

@@ -1,0 +1,58 @@
+# Render blueprint: the API and its database, in one click.
+#
+# Render is used here because it is the shortest path to a running API with a
+# managed Postgres beside it and no credit card. Railway or Fly work equally
+# well; the only things that matter are that the host runs a long-lived Node
+# process (the API holds WebSockets open) and gives you a Postgres URL.
+#
+# Deploy: render.com -> New -> Blueprint -> pick this repository.
+# Render reads this file, creates both services, and asks you for the two
+# secrets marked `sync: false` below.
+
+databases:
+  - name: agents-world-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: agents-world-api
+    runtime: node
+    plan: free
+    # Free instances sleep when idle. A goal that is mid-run when the instance
+    # sleeps resumes on the next request, because the run is persisted rather
+    # than held in memory - but a paid instance is what you want in the end.
+    healthCheckPath: /health
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @agents-world/shared build &&
+      pnpm --filter @agents-world/api build &&
+      pnpm --filter @agents-world/api db:migrate
+    startCommand: pnpm --filter @agents-world/api start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agents-world-db
+          property: connectionString
+
+      # Claude. Render asks for this during setup; it never enters the repo.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # The Vercel URL of the web app. Sign-in redirects back to it, so it has
+      # to be exact - https, no trailing slash.
+      - key: APP_URL
+        sync: false
+
+      # Signs session cookies. Any long random string; Render generates one.
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # Encrypts integration tokens at rest. Must decode to exactly 32 bytes,
+      # so it cannot be auto-generated - run this and paste the result:
+      #   openssl rand -base64 32
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
