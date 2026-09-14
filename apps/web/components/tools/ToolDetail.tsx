@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { IntegrationInfo } from '@/lib/api'
+import { useLiquidGlass } from '@/lib/useLiquidGlass'
 import { ToolIcon } from './ToolCard'
 
 /**
@@ -34,6 +35,7 @@ export function ToolDetail({
   connecting: boolean
 }) {
   const [tab, setTab] = useState<Tab>('Overview')
+  const surface = useLiquidGlass<HTMLElement>({ scale: -88, chroma: 5, border: 24, radius: 20 })
 
   // A different tool is a different subject. Landing on Permissions because
   // that is where you were last would bury the thing you just clicked.
@@ -42,7 +44,7 @@ export function ToolDetail({
   const connected = tool.connection !== null
 
   return (
-    <aside className="detail lg" aria-label={`${tool.name} details`}>
+    <aside className="detail lg" ref={surface} aria-label={`${tool.name} details`}>
       <button className="detail__close" onClick={onClose} aria-label="Close details">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
           <path d="m6.5 6.5 11 11m0-11-11 11" stroke="currentColor" strokeWidth="1.9"

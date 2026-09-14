@@ -1,11 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
 export default function SignInPage() {
+  const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  /*
+   * Already signed in? Go straight in.
+   *
+   * This also covers the preview deployment, where there is no OAuth to run
+   * and /me answers with a preview user - without this, the only door into the
+   * app is a Google button that cannot work.
+   */
+  useEffect(() => {
+    api
+      .me()
+      .then((me) => { if (me.workspace) router.replace('/world') })
+      .catch(() => undefined)
+  }, [router])
 
   const signIn = async (provider: 'google' | 'microsoft') => {
     setBusy(provider)

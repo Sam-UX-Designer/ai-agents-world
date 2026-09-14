@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import type { AgentInfo } from '@/lib/api'
 import { api } from '@/lib/api'
 import { pointOn, useCoverRect } from '@/lib/coverRect'
+import { useLiquidGlass } from '@/lib/useLiquidGlass'
 import { useWorld, type AgentView } from '@/lib/store'
 import { VoiceInput } from './VoiceInput'
 
@@ -233,6 +234,8 @@ export function CommandBar({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const input = useRef<HTMLTextAreaElement>(null)
+  // The one surface the user reaches for, so it gets the real bend at its rim.
+  const surface = useLiquidGlass<HTMLDivElement>({ scale: -96, chroma: 5, border: 26, radius: 28 })
 
   const submit = useCallback(async () => {
     const trimmed = prompt.trim()
@@ -259,7 +262,7 @@ export function CommandBar({
     /* One glass container. The input row and the suggestion pills are both
        inside it, so they read as one component rather than a bar with
        unrelated chips floating beneath it. */
-    <div className="command glass">
+    <div className="command glass" ref={surface}>
       <div className="command__row">
         <span className="command__spark" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none">
