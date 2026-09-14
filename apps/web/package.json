@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "pnpm --filter @agents-world/shared build && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

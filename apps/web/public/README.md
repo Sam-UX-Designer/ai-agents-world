@@ -1,20 +1,36 @@
-# Static assets
+# Public assets
 
-## island-hero.png (required)
+Everything here is served from the site root. A file at
+`public/tools/gmail.png` is reachable at `/tools/gmail.png`.
 
-The hero background: the Agent World island render.
+**Claude does not create artwork in this folder.** Every image here is supplied
+by the product owner. Until a file exists the UI shows a labelled placeholder
+that names the exact path it expects, so a missing asset is obvious rather than
+silently broken.
 
-Drop the supplied artwork here as `island-hero.png`. The hero reads it from
-`/island-hero.png` and falls back to a gradient until it exists, so the page
-works either way — but the fallback is a placeholder, not the design.
+## Where each asset goes
 
-Guidance:
-- Roughly 16:9. The supplied render is 1664x936, which is right.
-- Export at 2x for retina (about 2400px wide) and keep it under ~600KB.
-  A hero image is the first thing a visitor downloads, and a 4MB PNG is felt.
-- WebP is better than PNG here. Save as `island-hero.webp` and change the one
-  `HERO_IMAGE` constant in `components/hero/Hero.tsx`.
+| Folder | What goes in it |
+|---|---|
+| `world/` | Full-screen backgrounds for the three surfaces |
+| `tools/` | Integration logos on the Tools screen |
+| `agents/` | Agent portraits shown in detail panels and History |
+| `icons/` | Interface icons (navigation, actions, status) |
+| `mascots/` | Robot mascot renders used in empty states and onboarding |
 
-Agent label positions are expressed as fractions of this image's width and
-height, in `zone.hero` in `packages/shared/src/agents/registry.ts`. If the
-artwork is recropped, those fractions move with it.
+## Current state
+
+`island-hero.png` is already uploaded and in use as the Home background.
+It stays at the root of `public/` because the code references it there;
+see `world/README.md` if you would rather move it.
+
+## Guidance for every image
+
+- **Export at 2x** for retina, then compress. A hero is the first thing a
+  visitor downloads, and `island-hero.png` is currently 2.9 MB — large enough
+  to be felt on a phone connection. WebP at the same visual quality is
+  typically 4-6x smaller.
+- **Use transparent PNG or SVG for logos and icons**, never a white box.
+- **Name files in lowercase with hyphens** (`google-calendar.png`), because
+  URLs are case-sensitive in production and not on macOS - a mismatch works
+  locally and 404s once deployed.
