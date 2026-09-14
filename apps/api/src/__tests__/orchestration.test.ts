@@ -95,9 +95,9 @@ test('a goal runs end to end: plan, parallel wave, dependent task, summary', asy
     plan: {
       interpretation: 'Check mail and calendar, then combine them.',
       tasks: [
-        { id: 't1', title: 'Check mail', description: 'Read unread mail', agentKey: 'email', dependsOn: [] },
-        { id: 't2', title: 'Check calendar', description: 'List tomorrow', agentKey: 'calendar', dependsOn: [] },
-        { id: 't3', title: 'Catch up on Slack', description: 'Read channels', agentKey: 'slack', dependsOn: ['t1', 't2'] },
+        { id: 't1', title: 'Check mail', description: 'Read unread mail', agentKey: 'hr', dependsOn: [] },
+        { id: 't2', title: 'Check calendar', description: 'List tomorrow', agentKey: 'finance', dependsOn: [] },
+        { id: 't3', title: 'Catch up on Slack', description: 'Read channels', agentKey: 'sales', dependsOn: ['t1', 't2'] },
       ],
       unsupported: [],
     },
@@ -169,7 +169,7 @@ test('an agent that tries to send email stops and waits for the user', async () 
     plan: {
       interpretation: 'Reply to Priya.',
       tasks: [
-        { id: 't1', title: 'Reply to Priya', description: 'Send the reply', agentKey: 'email', dependsOn: [] },
+        { id: 't1', title: 'Reply to Priya', description: 'Send the reply', agentKey: 'hr', dependsOn: [] },
       ],
       unsupported: [],
     },
@@ -227,12 +227,12 @@ test('resuming is refused while any approval is still undecided', async () => {
   const [task] = await db.insert(schema.tasks).values({
     planId: '11111111-1111-1111-1111-111111111111',
     goalId, workspaceId, planLocalId: 't1',
-    title: 'Send', description: 'Send it', agentKey: 'email',
+    title: 'Send', description: 'Send it', agentKey: 'hr',
     dependsOn: [], wave: 0, state: 'awaiting_approval',
   }).returning({ id: schema.tasks.id })
 
   await db.insert(schema.approvals).values({
-    taskId: task!.id, goalId, workspaceId, agentKey: 'email',
+    taskId: task!.id, goalId, workspaceId, agentKey: 'hr',
     actionType: 'gmail.send', description: 'Send an email', state: 'pending',
   })
 
@@ -299,7 +299,7 @@ test('approving resumes the agent mid-thought and the send actually happens', as
       plan: {
         interpretation: 'Reply to Priya.',
         tasks: [
-          { id: 't1', title: 'Reply to Priya', description: 'Send the reply', agentKey: 'email', dependsOn: [] },
+          { id: 't1', title: 'Reply to Priya', description: 'Send the reply', agentKey: 'hr', dependsOn: [] },
         ],
         unsupported: [],
       },
@@ -372,7 +372,7 @@ test('declining cancels the task and nothing is sent', async () => {
     const client = stubClient({
       plan: {
         interpretation: 'Reply.',
-        tasks: [{ id: 't1', title: 'Reply', description: 'Send it', agentKey: 'email', dependsOn: [] }],
+        tasks: [{ id: 't1', title: 'Reply', description: 'Send it', agentKey: 'hr', dependsOn: [] }],
         unsupported: [],
       },
       replies: [{ toolName: 'gmail_send', input: { to: 'priya@example.com', subject: 'Re', body: 'x' } }],
@@ -409,11 +409,11 @@ test('"don\'t ask again" never attaches to a deletion', async () => {
   const [task] = await db.insert(schema.tasks).values({
     planId: '22222222-2222-2222-2222-222222222222',
     goalId, workspaceId, planLocalId: 't1', title: 'Delete', description: 'x',
-    agentKey: 'calendar', dependsOn: [], wave: 0, state: 'awaiting_approval',
+    agentKey: 'finance', dependsOn: [], wave: 0, state: 'awaiting_approval',
   }).returning({ id: schema.tasks.id })
 
   const [approval] = await db.insert(schema.approvals).values({
-    taskId: task!.id, goalId, workspaceId, agentKey: 'calendar',
+    taskId: task!.id, goalId, workspaceId, agentKey: 'finance',
     actionType: 'gcal.delete_event', description: 'Delete an event', state: 'pending',
   }).returning({ id: schema.approvals.id })
 

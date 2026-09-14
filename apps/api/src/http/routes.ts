@@ -6,11 +6,14 @@ import {
   AGENT_REGISTRY,
   PROVIDERS,
   getProvider,
+  resolveTools,
   type ConnectionProvider,
   type ProviderDefinition,
   type ProviderStatus,
 } from '@agents-world/shared'
-import { setAutonomyLevel } from '../auth/workspaces.js'
+import { issueSession, revokeSession, SESSION_COOKIE } from '../auth/sessions.js'
+import { completeSignIn, resolveUser, startSignIn } from '../auth/signin.js'
+import { getWorkspace, setAutonomyLevel } from '../auth/workspaces.js'
 import { db, schema } from '../db/client.js'
 import type { EventBus } from '../realtime/bus.js'
 import { resolveApproval, listPendingApprovals } from '../runtime/approvals.js'
@@ -59,7 +62,14 @@ export async function registerRoutes(
       zone: agent.zone,
       accent: agent.accent,
       enabled: agent.enabled,
-      tools: agent.tools.map((t) => ({ id: t.id, label: t.label, effect: t.effect })),
+      // Resolved from the shared catalogue rather than owned by the agent, so
+      // the panel lists what this role can actually reach right now.
+      tools: resolveTools(agent.toolIds).map((t) => ({
+        id: t.id,
+        label: t.label,
+        effect: t.effect,
+      })),
+      instructions: agent.instructions,
     })),
   )
 
@@ -141,6 +151,111 @@ export async function registerRoutes(
       const { id } = request.params as { id: string }
       await revokeConnection(ctx.workspaceId, id)
       return { revoked: true }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  // ----------------------------------------------------------------- sign in --
+
+  /** Begin sign-in. Identity scopes only - no mail, no calendar. */
+  app.get('/auth/:provider/signin', async (request, reply) => {
+    const { provider } = request.params as { provider: string }
+    if (provider !== 'google' && provider !== 'microsoft') {
+      return reply.status(404).send({ error: 'Unknown sign-in provider' })
+    }
+
+    try {
+      const url = await startSignIn(provider, (request.query as { returnTo?: string }).returnTo)
+      return { url }
+    } catch (err) {
+      return reply.status(409).send({
+        error: err instanceof Error ? err.message : 'Sign-in is not configured',
+      })
+    }
+  })
+
+  app.get('/auth/:provider/signin-callback', async (request, reply) => {
+    const { provider } = request.params as { provider: string }
+    const query = request.query as { code?: string; state?: string; error?: string }
+    const appUrl = config().APP_URL.replace(/\/$/, '')
+
+    if (provider !== 'google' && provider !== 'microsoft') {
+      return reply.redirect(`${appUrl}/signin?error=unknown_provider`)
+    }
+    if (query.error || !query.code || !query.state) {
+      return reply.redirect(`${appUrl}/signin?error=${encodeURIComponent(query.error ?? 'cancelled')}`)
+    }
+
+    const consumed = await consumeState(query.state)
+    if (!consumed || consumed.provider !== `signin:${provider}`) {
+      return reply.redirect(`${appUrl}/signin?error=expired`)
+    }
+
+    try {
+      const identity = await completeSignIn(provider, query.code, consumed.codeVerifier)
+      const { userId, workspaceId, isNew } = await resolveUser(provider, identity)
+      const { token, expiresAt } = await issueSession({
+        userId,
+        workspaceId,
+        userAgent: request.headers['user-agent'],
+        ipAddress: request.ip,
+      })
+
+      return reply
+        .setCookie(SESSION_COOKIE, token, {
+          httpOnly: true,
+          // Not reachable from JavaScript, not sent on cross-site requests,
+          // and TLS-only outside development.
+          sameSite: 'lax',
+          secure: config().NODE_ENV === 'production',
+          path: '/',
+          expires: expiresAt,
+        })
+        // A new account goes to Connect Tools, since an agent with no
+        // integrations has nothing to work with.
+        .redirect(consumed.returnTo ?? `${appUrl}/${isNew ? 'connect' : 'world'}`)
+    } catch (err) {
+      request.log.error({ err }, 'sign-in failed')
+      return reply.redirect(`${appUrl}/signin?error=signin_failed`)
+    }
+  })
+
+  app.post('/auth/signout', async (request, reply) => {
+    const token = request.cookies[SESSION_COOKIE]
+    if (token) await revokeSession(token)
+    return reply.clearCookie(SESSION_COOKIE, { path: '/' }).send({ signedOut: true })
+  })
+
+  /** Who am I, and what can I reach. The client's first call on load. */
+  app.get('/me', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const [user] = await db()
+        .select({
+          id: schema.users.id,
+          email: schema.users.email,
+          name: schema.users.name,
+          avatarUrl: schema.users.avatarUrl,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1)
+
+      const workspace = await getWorkspace(ctx.workspaceId)
+
+      return {
+        user,
+        workspace: workspace
+          ? {
+              id: workspace.id,
+              name: workspace.name,
+              autonomyLevel: workspace.autonomyLevel,
+              role: ctx.membership.role,
+            }
+          : null,
+        connections: await listConnections(ctx.workspaceId),
+      }
     } catch (err) {
       return respondWithError(reply, err)
     }

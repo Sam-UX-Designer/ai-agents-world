@@ -67,12 +67,31 @@ test('the agent roster is served for the island', async () => {
   const res = await app.inject({ method: 'GET', url: '/agents' })
   assert.equal(res.statusCode, 200)
 
-  const agents = res.json() as { key: string; zone: { position: number[] } }[]
-  const keys = agents.map((a) => a.key)
-  assert.deepEqual(keys.sort(), ['calendar', 'email', 'orchestrator', 'slack'])
+  const agents = res.json() as {
+    key: string
+    zone: { position: number[]; hero: number[] }
+    tools: { id: string }[]
+  }[]
+
+  const keys = agents.map((a) => a.key).sort()
+  assert.deepEqual(
+    keys,
+    ['cto', 'design', 'development', 'finance', 'hr', 'marketing', 'operations', 'orchestrator', 'sales'],
+    'one agent per department, not one per tool',
+  )
 
   const orchestrator = agents.find((a) => a.key === 'orchestrator')
   assert.deepEqual(orchestrator?.zone.position, [0, 0, 0], 'the hub sits at the island centre')
+
+  // The point of the shared catalogue: one tool, reachable by several roles.
+  const senders = agents.filter((a) => a.tools.some((t) => t.id === 'gmail.send'))
+  assert.ok(senders.length > 1, 'gmail.send is shared across departments, not owned by one agent')
+
+  // Every agent needs a hero coordinate so its label can sit on the artwork.
+  assert.ok(
+    agents.every((a) => a.zone.hero.length === 2),
+    'every agent has a position on the hero image',
+  )
 })
 
 test('the connector catalogue marks unconfigured providers as blocked', async () => {

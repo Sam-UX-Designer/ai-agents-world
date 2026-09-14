@@ -25,6 +25,9 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
 
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+
   SLACK_CLIENT_ID: z.string().optional(),
   SLACK_CLIENT_SECRET: z.string().optional(),
   SLACK_REDIRECT_URI: z.string().optional(),
