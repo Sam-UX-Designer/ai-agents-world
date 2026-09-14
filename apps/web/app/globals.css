@@ -45,23 +45,39 @@
   color-scheme: dark;
 
   /*
-   * Glass.
+   * Frosted glass.
    *
-   * Taken verbatim from .card-glass in the portfolio - the cards in the
-   * "What I Build" section (src/index.css:128 of Sam-Jo-Portfolio-Version-2).
-   * One recipe, used by every floating surface in this app.
+   * Fully frosted: you see light and colour through a panel, never shapes.
    *
-   * Note the tint is a neutral grey at 20%, not a dark navy. Almost all of the
-   * separation comes from the 100px blur rather than from covering what is
-   * behind it, which is what makes it read as glass instead of as a panel.
+   * The important change is that the frost does NOT come from backdrop-filter.
+   * A backdrop blur is silently skipped by more machines than you would think -
+   * any ancestor with a transform, filter or opacity redefines what counts as
+   * "behind", some GPUs drop it under load, and Firefox only enabled it
+   * recently. When it is skipped, a 20%-opacity panel becomes a clear pane and
+   * the artwork reads straight through it, which is exactly what happened.
+   *
+   * So the opaque frost layer below carries the effect on its own, and the
+   * blur is only an enhancement on top: where it works it bleeds the ocean's
+   * colour through the panel, and where it does not, nothing breaks.
+   *
+   * --frost-grain is the fine grain of etched glass. Without it a flat fill at
+   * this opacity reads as plastic.
    */
   --glass-blur: 100px;
-  --glass-saturate: 115%;
-  --glass-bg: rgba(95, 95, 95, 0.20);
-  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-saturate: 150%;
+
+  --glass-bg: linear-gradient(
+    168deg,
+    rgba(20, 32, 50, 0.94) 0%,
+    rgba(10, 18, 31, 0.96) 100%
+  );
+  --glass-border: rgba(255, 255, 255, 0.16);
   --glass-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.20),
-    0 12px 40px rgba(0, 0, 0, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 16px 44px rgba(0, 0, 0, 0.42);
+
+  --frost-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23g)' opacity='0.05'/></svg>");
 }
 
 html, body {
@@ -84,7 +100,7 @@ html, body {
  * the numbers come from.
  */
 .glass {
-  background: var(--glass-bg);
+  background: var(--frost-grain), var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
@@ -92,13 +108,8 @@ html, body {
   border-radius: var(--radius-lg);
 }
 
-/* Where blur is unavailable, lean opaque. A see-through panel with no blur
-   over this artwork is unreadable, and legibility beats the effect. */
-@supports not (backdrop-filter: blur(1px)) {
-  .glass {
-    background: color-mix(in srgb, var(--color-ink-900) 94%, transparent);
-  }
-}
+/* No @supports fallback is needed any more: the frost layer is opaque on its
+   own, so a browser with no backdrop-filter loses only the colour bleed. */
 
 /* ------------------------------------------------------------------ world -- */
 
@@ -405,12 +416,11 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
   color: var(--color-text);
-  /* Clear variant over bright media, with the dimming the HIG asks for. */
-  background: color-mix(in srgb, var(--color-ink-950) 68%, transparent);
-  backdrop-filter: saturate(170%) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(170%) blur(var(--glass-blur));
-  border: 1px solid rgb(255 255 255 / 0.11);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 8px 24px rgb(0 0 0 / 0.45);
+  background: var(--frost-grain), var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.13), 0 8px 24px rgb(0 0 0 / 0.45);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
@@ -419,13 +429,13 @@ html, body {
 .station[data-side="left"]  .marker { left: auto; right: 8px; transform: none; }
 .station[data-side="right"] .marker { left: 8px; transform: none; }
 
-.marker:hover { border-color: rgb(255 255 255 / 0.24); background: color-mix(in srgb, var(--color-ink-950) 78%, transparent); }
+.marker:hover { border-color: rgb(255 255 255 / 0.28); }
 .marker[aria-pressed="true"] { border-color: var(--color-accent); }
 .marker[data-primary="true"] { bottom: 40px; }
 
 .marker__icon--img {
   object-fit: contain;
-  background: color-mix(in srgb, var(--color-ink-950) 45%, transparent);
+  background: rgb(255 255 255 / 0.06);
   border-color: rgb(255 255 255 / 0.12);
 }
 
@@ -733,13 +743,11 @@ html, body {
     /* On a phone the nav becomes a bottom tab bar, and there it does get a
        shared surface - a tab bar is a single control, not four floating
        links. */
-    background: linear-gradient(160deg,
-      color-mix(in srgb, var(--color-ink-800) 78%, transparent),
-      color-mix(in srgb, var(--color-ink-900) 84%, transparent));
-    backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-    -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-    border: 1px solid rgb(255 255 255 / 0.09);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.10), 0 18px 50px rgb(0 0 0 / 0.45);
+    background: var(--frost-grain), var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
     top: auto;
     bottom: max(var(--edge), env(safe-area-inset-bottom));
     left: var(--edge);
@@ -826,7 +834,7 @@ html, body {
   position: relative;
   isolation: isolate;
   border-radius: var(--radius-lg);
-  background: var(--glass-bg);
+  background: var(--frost-grain), var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
@@ -855,14 +863,7 @@ html, body {
     0 8px 24px rgb(0 0 0 / 0.10);
 }
 
-/*
- * Where blur is unavailable the material cannot work, so lean opaque instead.
- * Glass with no blur over this artwork is unreadable, and legibility beats
- * the effect.
- */
-@supports not (backdrop-filter: blur(1px)) {
-  .lg { background: color-mix(in srgb, var(--color-ink-900) 93%, transparent); }
-}
+
 
 /* ===========================================================================
    Tools
@@ -1534,13 +1535,6 @@ html, body {
     right: 0;
     top: 0;
     bottom: 0;
-    /* Over the grid rather than over the ocean, so it leans opaque - glass
-       on top of dense text is just illegible text. */
-    background: linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--color-ink-800) 95%, transparent),
-      color-mix(in srgb, var(--color-ink-950) 97%, transparent)
-    );
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.13),
       0 24px 70px rgb(2 6 14 / 0.62);
@@ -1595,13 +1589,6 @@ html, body {
     );
     max-height: 58dvh;
     animation: sheetin 240ms cubic-bezier(.22,.9,.3,1);
-    /* Nearly opaque: this sheet covers the grid, not the ocean, and glass
-       over dense text is just illegible text. */
-    background: linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--color-ink-800) 96%, transparent),
-      color-mix(in srgb, var(--color-ink-950) 98%, transparent)
-    );
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.13),
       0 -12px 40px rgb(2 6 14 / 0.55),
