@@ -45,21 +45,23 @@
   color-scheme: dark;
 
   /*
-   * Glass strength.
+   * Glass.
    *
-   * Three numbers drive every floating surface in the app. Raise --glass-blur
-   * for a heavier frost, --glass-tint for a more solid panel. Nothing else
-   * needs editing: every surface below reads these.
+   * Taken verbatim from .card-glass in the portfolio - the cards in the
+   * "What I Build" section (src/index.css:128 of Sam-Jo-Portfolio-Version-2).
+   * One recipe, used by every floating surface in this app.
    *
-   *   light frost   28px / 62%
-   *   deep frost   100px / 70%   <- current
-   *   nearly solid  70px / 96%
+   * Note the tint is a neutral grey at 20%, not a dark navy. Almost all of the
+   * separation comes from the 100px blur rather than from covering what is
+   * behind it, which is what makes it read as glass instead of as a panel.
    */
   --glass-blur: 100px;
-  --glass-blur-sm: 76px;
-  --glass-tint: 70%;
-  --glass-tint-2: 74%;
-  --glass-saturate: 180%;
+  --glass-saturate: 115%;
+  --glass-bg: rgba(95, 95, 95, 0.20);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.20),
+    0 12px 40px rgba(0, 0, 0, 0.10);
 }
 
 html, body {
@@ -78,25 +80,15 @@ html, body {
 /* ------------------------------------------------------------------ glass -- */
 
 /*
- * One recipe, used by every floating surface.
- *
- * saturate() before blur is what keeps the ocean's colour alive through the
- * panel instead of going grey - the single thing that most distinguishes real
- * glass from a translucent black rectangle.
+ * One recipe, used by every floating surface. See the tokens above for where
+ * the numbers come from.
  */
 .glass {
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--color-ink-800) var(--glass-tint), transparent),
-    color-mix(in srgb, var(--color-ink-900) var(--glass-tint-2), transparent)
-  );
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border: 1px solid rgb(255 255 255 / 0.09);
-  /* Inset highlight along the top edge reads as light catching a real rim. */
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.10),
-    0 18px 50px rgb(0 0 0 / 0.45);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: var(--radius-lg);
 }
 
@@ -240,8 +232,8 @@ html, body {
 
 .sidenav__item:hover {
   background: rgb(255 255 255 / 0.10);
-  backdrop-filter: blur(var(--glass-blur-sm));
-  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 /* The active item is the one solid surface in the column. */
@@ -280,8 +272,8 @@ html, body {
   font-size: 13px; font-weight: 650;
   background: rgb(255 255 255 / 0.13);
   border: 1px solid rgb(255 255 255 / 0.18);
-  backdrop-filter: blur(var(--glass-blur-sm));
-  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 .profile__who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
@@ -415,8 +407,8 @@ html, body {
   color: var(--color-text);
   /* Clear variant over bright media, with the dimming the HIG asks for. */
   background: color-mix(in srgb, var(--color-ink-950) 68%, transparent);
-  backdrop-filter: saturate(170%) blur(var(--glass-blur-sm));
-  -webkit-backdrop-filter: saturate(170%) blur(var(--glass-blur-sm));
+  backdrop-filter: saturate(170%) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(170%) blur(var(--glass-blur));
   border: 1px solid rgb(255 255 255 / 0.11);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 8px 24px rgb(0 0 0 / 0.45);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
@@ -826,30 +818,21 @@ html, body {
    where it faces the light. That needs mask compositing, which is why it is a
    pseudo-element rather than a `border`.
 
-   Used by Tools. Home keeps `.glass` so its appearance is unchanged.
+   `.glass` and `.lg` are now the same material - the portfolio card recipe -
+   and differ only in that `.lg` adds the internal reflection below.
    =========================================================================== */
 
 .lg {
   position: relative;
   isolation: isolate;
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--color-ink-800) var(--glass-tint), transparent) 0%,
-      color-mix(in srgb, var(--color-ink-900) var(--glass-tint-2), transparent) 100%
-    );
-  backdrop-filter: blur(var(--glass-blur)) saturate(190%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%);
-  box-shadow:
-    /* top rim, lit */
-    inset 0 1px 0 rgb(255 255 255 / 0.13),
-    /* bottom rim, in shadow */
-    inset 0 -1px 0 rgb(0 0 0 / 0.28),
-    /* depth */
-    0 20px 56px rgb(2 6 14 / 0.46),
-    0 2px 8px rgb(2 6 14 / 0.3);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
+
 
 /* The internal reflection: a soft sweep across the upper-left of the surface. */
 .lg::before {
@@ -864,46 +847,12 @@ html, body {
     radial-gradient(90% 60% at 88% 108%, rgb(62 155 255 / 0.07) 0%, transparent 60%);
 }
 
-/*
- * The rim.
- *
- * A gradient hairline drawn as a ring: painted over the whole box, then masked
- * so only the 1px edge survives. `border: 1px solid` can only be one colour,
- * and a rim that is equally bright all the way round reads as a stroke rather
- * than as an edge catching light.
- */
-.lg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    160deg,
-    rgb(255 255 255 / 0.26) 0%,
-    rgb(255 255 255 / 0.07) 32%,
-    rgb(255 255 255 / 0.04) 68%,
-    rgb(120 180 255 / 0.14) 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-
-/* Thinner variant for small surfaces: pills, cards, buttons. */
+/* Same material at a smaller scale: the blur is the same everywhere, only the
+   drop shadow lightens so small cards do not float as far off the world. */
 .lg--thin {
-  backdrop-filter: blur(var(--glass-blur-sm)) saturate(175%);
-  -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(175%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.11),
-    inset 0 -1px 0 rgb(0 0 0 / 0.22),
-    0 8px 22px rgb(2 6 14 / 0.36);
+    inset 0 1px 1px rgb(255 255 255 / 0.20),
+    0 8px 24px rgb(0 0 0 / 0.10);
 }
 
 /*
