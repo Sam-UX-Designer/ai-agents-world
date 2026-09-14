@@ -62,14 +62,18 @@
    *
    * --frost-grain is the fine grain of etched glass. Without it a flat fill at
    * this opacity reads as plastic.
+   *
+   * The frost sits at 78-85%: enough that no shape from the artwork survives,
+   * light enough that the world's colour still comes through and the panels
+   * read as glass on top of a place rather than as an opaque dashboard.
    */
   --glass-blur: 100px;
   --glass-saturate: 150%;
 
   --glass-bg: linear-gradient(
     168deg,
-    rgba(20, 32, 50, 0.94) 0%,
-    rgba(10, 18, 31, 0.96) 100%
+    rgba(20, 32, 50, 0.78) 0%,
+    rgba(10, 18, 31, 0.85) 100%
   );
   --glass-border: rgba(255, 255, 255, 0.16);
   --glass-shadow:
