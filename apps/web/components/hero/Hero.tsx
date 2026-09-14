@@ -37,9 +37,6 @@ export function Hero({ agents }: { agents: readonly AgentInfo[] }) {
   const agentStates = useWorld((s) => s.agents)
   const selectAgent = useWorld((s) => s.selectedAgent)
   const setSelected = useWorld((s) => s.selectAgent)
-  const goalState = useWorld((s) => s.goalState)
-  const goalId = useWorld((s) => s.goalId)
-  const tasks = useWorld((s) => s.tasks)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -49,7 +46,6 @@ export function Hero({ agents }: { agents: readonly AgentInfo[] }) {
   const activeCount = Object.values(agentStates).filter((a) =>
     ['planning', 'spawning', 'working'].includes(a.state),
   ).length
-  const doneCount = Object.values(tasks).filter((t) => t.state === 'succeeded').length
 
   const submit = useCallback(async () => {
     const trimmed = prompt.trim()
@@ -176,22 +172,6 @@ export function Hero({ agents }: { agents: readonly AgentInfo[] }) {
             />
           ))}
 
-          {goalId && (
-            <div
-              className="glass"
-              style={{
-                position: 'absolute', right: 14, bottom: 14, maxWidth: 260,
-                padding: '11px 14px', fontSize: 12,
-              }}
-            >
-              <p style={{ margin: '0 0 3px', color: 'var(--color-text-dim)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {goalState === 'completed' ? 'Finished' : 'In progress'}
-              </p>
-              <p style={{ margin: 0 }}>
-                {doneCount} of {Object.keys(tasks).length || '—'} tasks done
-              </p>
-            </div>
-          )}
         </div>
       </div>
 

@@ -328,3 +328,51 @@ body {
     padding-top: 8px !important;
   }
 }
+
+/* ------------------------------------------------------------- world dock -- */
+
+/*
+ * Where progress and results live.
+ *
+ * Right side on desktop, matching the design board, with agent detail on the
+ * left. The two panels are the only large surfaces over the island, and
+ * putting them on the same edge means one always covers the other - or covers
+ * the agent markers the user is trying to read.
+ *
+ * On a phone it becomes a block in the flow instead: a 400px panel pinned to
+ * one side of a 400px screen is a panel covering the world it describes.
+ */
+.world-dock {
+  position: fixed;
+  right: 16px;
+  top: 92px;
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  /* Rounded scroll container; the panels inside supply their own surface. */
+  border-radius: var(--radius-panel);
+}
+
+.agent-dock {
+  position: fixed;
+  left: 16px;
+  top: 92px;
+  z-index: 41;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
+  border-radius: var(--radius-panel);
+}
+
+@media (max-width: 900px) {
+  .world-dock,
+  .agent-dock {
+    position: static;
+    width: auto;
+    max-height: none;
+    margin: 0 clamp(16px, 4vw, 40px) 16px;
+  }
+}

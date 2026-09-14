@@ -414,6 +414,50 @@ export async function registerRoutes(
     }
   })
 
+  /** An artifact's content, for the results panel and for download. */
+  app.get('/artifacts/:id', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const { id } = request.params as { id: string }
+
+      const [artifact] = await db()
+        .select()
+        .from(schema.artifacts)
+        .where(
+          and(
+            eq(schema.artifacts.id, id),
+            // Scoped in the query, not checked afterwards: an id in a URL is
+            // not evidence of anything until it is matched to the caller.
+            eq(schema.artifacts.workspaceId, ctx.workspaceId),
+          ),
+        )
+        .limit(1)
+
+      if (!artifact) return reply.status(404).send({ error: 'Not found' })
+
+      const download = (request.query as { download?: string }).download === '1'
+      if (download) {
+        // Content-Disposition on a text/plain body, so the browser saves the
+        // file instead of rendering it in a tab.
+        const filename = `${artifact.title.replace(/[^\w. -]/g, '_')}.txt`
+        return reply
+          .header('content-type', 'text/plain; charset=utf-8')
+          .header('content-disposition', `attachment; filename="${filename}"`)
+          .send(artifact.content ?? '')
+      }
+
+      return {
+        id: artifact.id,
+        title: artifact.title,
+        kind: artifact.kind,
+        content: artifact.content,
+        createdAt: artifact.createdAt,
+      }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
   // -------------------------------------------------------------- approvals --
 
   app.get('/approvals', async (request, reply) => {

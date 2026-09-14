@@ -103,6 +103,21 @@ export const api = {
       artifacts: { id: string; title: string; kind: string }[]
     }>(`/goals/${id}`),
 
+  artifact: (id: string) =>
+    request<{ id: string; title: string; kind: string; content: string | null }>(
+      `/artifacts/${id}`,
+    ),
+
+  /**
+   * A direct link to download an artifact.
+   *
+   * A URL rather than a fetch-and-blob: the browser's own download handling
+   * gets the filename from Content-Disposition, streams large files without
+   * holding them in memory, and shows the download in the normal place the
+   * user looks for one.
+   */
+  artifactDownloadUrl: (id: string) => `/api/artifacts/${id}?download=1`,
+
   resolveApproval: (id: string, decision: 'approved' | 'rejected', remember = false) =>
     request<{ resumed: boolean }>(`/approvals/${id}`, {
       method: 'POST',

@@ -8,6 +8,8 @@ import { useWorld } from '@/lib/store'
 import { Hero } from '@/components/hero/Hero'
 import { AgentPanel } from '@/components/ui/AgentPanel'
 import { ApprovalSheet } from '@/components/ui/ApprovalSheet'
+import { Results } from '@/components/ui/Results'
+import { TaskProgress } from '@/components/ui/TaskProgress'
 
 /**
  * The Agent World.
@@ -21,9 +23,12 @@ export default function WorldPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const socket = useRef<WorldSocket | null>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
   const selectedAgent = useWorld((s) => s.selectedAgent)
   const setSelected = useWorld((s) => s.selectAgent)
   const summary = useWorld((s) => s.summary)
+  const goalId = useWorld((s) => s.goalId)
+  const goalState = useWorld((s) => s.goalState)
 
   useEffect(() => {
     api
@@ -54,6 +59,18 @@ export default function WorldPage() {
     return () => window.removeEventListener('goal:started', onGoalStarted)
   }, [onGoalStarted])
 
+  // On a phone the dock sits below the prompt in the flow, so a result that
+  // arrives while the user is looking at the island lands off screen. Bring it
+  // into view once, when it first appears - and only where it is actually out
+  // of view, so the desktop layout is left alone.
+  useEffect(() => {
+    if (!summary && goalState !== 'failed') return
+    const dock = dockRef.current
+    if (!dock) return
+    if (window.matchMedia('(min-width: 901px)').matches) return
+    dock.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [summary, goalState])
+
   if (loadError) {
     return (
       <main style={{ display: 'grid', placeItems: 'center', height: '100dvh', padding: 24 }}>
@@ -71,41 +88,17 @@ export default function WorldPage() {
       {agents.length > 0 && <Hero agents={agents} />}
 
       {selectedAgent && (
-        <div
-          style={{
-            position: 'fixed', right: 16, top: 76, zIndex: 40,
-            width: 'min(340px, calc(100vw - 32px))',
-            maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto',
-          }}
-        >
+        <div className="agent-dock">
           <AgentPanel agents={agents} />
         </div>
       )}
 
-      {summary && (
-        <div
-          style={{
-            position: 'fixed', left: 16, bottom: 100, zIndex: 40,
-            width: 'min(400px, calc(100vw - 32px))',
-            maxHeight: '45dvh', overflowY: 'auto',
-          }}
-        >
-          <section className="glass" style={{ padding: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--color-ok)' }} />
-              <h2 style={{ margin: 0, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--color-ok)' }}>
-                Done
-              </h2>
-            </div>
-            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-              {summary}
-            </p>
-            <button className="btn btn--ghost" style={{ width: '100%' }} onClick={() => useWorld.getState().reset()}>
-              New goal
-            </button>
-          </section>
-        </div>
-      )}
+      {/* Progress while it runs, the result when it finishes. Never both:
+          once the answer exists, the breakdown is history. */}
+      <div className="world-dock" aria-live="polite" ref={dockRef}>
+        {goalId && !summary && goalState !== 'failed' && <TaskProgress agents={agents} />}
+        {(summary || goalState === 'failed') && <Results />}
+      </div>
 
       <ApprovalSheet />
     </main>
