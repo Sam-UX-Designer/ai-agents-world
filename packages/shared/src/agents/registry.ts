@@ -1,4 +1,5 @@
 import type { ToolEffect } from '../domain/permissions.js'
+import type { ConnectionProvider } from './providers.js'
 
 /**
  * The agent roster.
@@ -20,9 +21,6 @@ export interface ToolSpec {
   /** Which integration must be connected for this tool to exist. */
   readonly requiresConnection: ConnectionProvider | null
 }
-
-export const CONNECTION_PROVIDERS = ['google', 'slack'] as const
-export type ConnectionProvider = (typeof CONNECTION_PROVIDERS)[number]
 
 /**
  * Where an agent lives on the island.
