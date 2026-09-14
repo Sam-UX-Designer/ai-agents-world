@@ -102,8 +102,10 @@ function Markers({
             data-side={side}
             style={{ left, top }}
           >
-            {/* Reserved for the mascot. Sits on the station itself. */}
-            <span className="station__mascot" data-state={view?.state ?? 'idle'} aria-hidden="true" />
+            {/* The mascot slot, sitting on the station itself. Shows the
+                uploaded render when one exists and a soft glow until then, so
+                dropping a file into public/mascots/ is the only step needed. */}
+            <Mascot agentKey={agent.key} state={view?.state ?? 'idle'} />
 
             <button
               className="marker"
@@ -112,9 +114,7 @@ function Markers({
               aria-pressed={selected === agent.key}
               onClick={() => select(selected === agent.key ? null : agent.key)}
             >
-              <span className="marker__icon" style={{ ['--accent' as string]: agent.accent }}>
-                {agent.name.charAt(0)}
-              </span>
+              <MascotIcon agentKey={agent.key} name={agent.name} accent={agent.accent} />
               <span className="marker__label">
                 <strong>{agent.name}</strong>
                 <em>{view?.activity ?? 'Ready'}</em>
@@ -307,6 +307,65 @@ export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void 
         <p role="alert" className="command__error">{error}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * The mascot on its station.
+ *
+ * Tries the uploaded render first and falls back to a glow, so a missing file
+ * is a quiet absence rather than a broken image icon on the artwork. The
+ * fallback is deliberately not a box or a silhouette: a placeholder shaped
+ * like a robot would read as the final design and get left there.
+ */
+function Mascot({ agentKey, state }: { agentKey: string; state: string }) {
+  const [missing, setMissing] = useState(false)
+  const busy = ['planning', 'spawning', 'working'].includes(state)
+
+  if (missing) {
+    return <span className="station__glow" data-state={state} aria-hidden="true" />
+  }
+
+  return (
+    <img
+      className="station__mascot"
+      data-state={state}
+      src={`/mascots/${agentKey}.png`}
+      alt=""
+      aria-hidden="true"
+      onError={() => setMissing(true)}
+      style={busy ? undefined : { opacity: 0.9 }}
+    />
+  )
+}
+
+/** The small icon inside an agent card. Same file, smaller. */
+function MascotIcon({
+  agentKey,
+  name,
+  accent,
+}: {
+  agentKey: string
+  name: string
+  accent: string
+}) {
+  const [missing, setMissing] = useState(false)
+
+  if (missing) {
+    return (
+      <span className="marker__icon" style={{ ['--accent' as string]: accent }}>
+        {name.charAt(0)}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      className="marker__icon marker__icon--img"
+      src={`/mascots/${agentKey}.png`}
+      alt=""
+      onError={() => setMissing(true)}
+    />
   )
 }
 

@@ -236,17 +236,22 @@ html, body {
 
 /* --------------------------------------------------------- profile -- */
 
+/*
+ * Bottom-left, sitting on the same baseline as the command bar.
+ *
+ * Account is the least-used thing on the screen, so it belongs out of the way
+ * at the bottom rather than interrupting the navigation. Aligning its base
+ * with the input gives the whole lower edge one line to read along.
+ */
 .profile {
   position: fixed;
   left: var(--edge);
-  top: calc(var(--edge) + 250px);
+  bottom: var(--edge);
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 11px;
-  padding-top: 18px;
   width: 176px;
-  border-top: 1px solid rgb(255 255 255 / 0.14);
 }
 
 .profile__avatar {
@@ -311,8 +316,38 @@ html, body {
   height: 0;
 }
 
-/* Reserved for the supplied mascot render. Sized to a robot in the artwork. */
+/* The uploaded mascot render, standing on its station. */
 .station__mascot {
+  position: absolute;
+  left: 50%;
+  /* Anchored by the feet, so a taller render grows upward and the character
+     still stands on the station rather than hovering over it. */
+  bottom: -8px;
+  transform: translateX(-50%);
+  width: 54px;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.5));
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.station__mascot[data-state="working"],
+.station__mascot[data-state="planning"],
+.station__mascot[data-state="spawning"] {
+  animation: mascotWork 2.2s ease-in-out infinite;
+}
+
+@keyframes mascotWork {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-5px); }
+}
+
+/*
+ * Shown until a mascot file exists.
+ *
+ * A glow rather than a silhouette on purpose: a placeholder shaped like a
+ * robot reads as the finished design and gets left in.
+ */
+.station__glow {
   position: absolute;
   left: 50%;
   top: 0;
@@ -321,15 +356,13 @@ html, body {
   height: 46px;
   border-radius: 50%;
   pointer-events: none;
-  /* A soft ground-glow, not a shape: until the mascot exists this reads as
-     the station being lit rather than as a placeholder box on the artwork. */
   background: radial-gradient(circle, rgb(90 180 255 / 0.30) 0%, transparent 68%);
   opacity: 0;
   transition: opacity 300ms ease;
 }
-.station__mascot[data-state="working"],
-.station__mascot[data-state="planning"],
-.station__mascot[data-state="spawning"] {
+.station__glow[data-state="working"],
+.station__glow[data-state="planning"],
+.station__glow[data-state="spawning"] {
   opacity: 1;
   animation: stationPulse 2.4s ease-in-out infinite;
 }
@@ -378,6 +411,12 @@ html, body {
 .marker:hover { border-color: rgb(255 255 255 / 0.24); background: color-mix(in srgb, var(--color-ink-950) 78%, transparent); }
 .marker[aria-pressed="true"] { border-color: var(--color-accent); }
 .marker[data-primary="true"] { bottom: 40px; }
+
+.marker__icon--img {
+  object-fit: contain;
+  background: color-mix(in srgb, var(--color-ink-950) 45%, transparent);
+  border-color: rgb(255 255 255 / 0.12);
+}
 
 .marker__icon {
   width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
