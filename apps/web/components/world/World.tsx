@@ -20,7 +20,7 @@ import { VoiceInput } from './VoiceInput'
  * useCoverRect for why that distinction matters once the image is cropped.
  */
 
-const HERO_IMAGE = '/island-hero.png'
+const HERO_IMAGE = '/world/island-hero.png'
 
 /** The supplied artwork's native aspect. Markers are anchored against this. */
 const ISLAND_ASPECT = 1672 / 941
@@ -314,7 +314,7 @@ function MissingArtwork() {
   return (
     <div className="world__missing">
       <p><strong>Island artwork not found</strong></p>
-      <p>Upload the render to <code>apps/web/public/island-hero.png</code>.</p>
+      <p>Upload the render to <code>apps/web/public/world/island-hero.png</code>.</p>
     </div>
   )
 }

@@ -20,7 +20,7 @@ export default function ToolsPage() {
   return (
     <main>
       <div className="world" aria-hidden="true">
-        <img className="world__art" src="/island-hero.png" alt="" />
+        <img className="world__art" src="/world/island-hero.png" alt="" />
         <div className="world__veil" />
       </div>
 

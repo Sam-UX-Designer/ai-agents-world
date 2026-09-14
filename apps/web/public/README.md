@@ -20,9 +20,9 @@ silently broken.
 
 ## Current state
 
-`island-hero.png` is already uploaded and in use as the Home background.
-It stays at the root of `public/` because the code references it there;
-see `world/README.md` if you would rather move it.
+No artwork is in the repository yet. Every surface shows a labelled placeholder
+naming the path it expects. Start with `world/island-hero.png` - that one is
+the Home background and the most visible gap.
 
 ## Guidance for every image
 

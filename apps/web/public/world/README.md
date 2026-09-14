@@ -5,16 +5,18 @@ colour treatment so moving between them feels like moving around one place.
 
 | File | Surface | Status |
 |---|---|---|
-| `../island-hero.png` | Home - the Agent World | **uploaded** (1672x941) |
+| `island-hero.png` | Home - the Agent World | **needed** |
 | `tools-bg.png` | Tools - integrations | needed |
 | `history-bg.png` | History - past work | needed |
 
 ## Notes
 
-**Home** already works. The file sits at `public/island-hero.png` rather than
-in this folder because the code references it there. To move it, put it here as
-`world/home.png` and change the one `HERO_IMAGE` constant in
-`apps/web/components/hero/Hero.tsx`.
+**Home** reads `/world/island-hero.png`. Until that file exists the page shows
+a panel naming the path rather than a broken image, so a missing asset is
+obvious instead of silently wrong.
+
+The artwork was previously at `public/island-hero.png` and was moved here, so
+the code now points at this folder. 1672x941 (16:9) was the size in use.
 
 **Tools and History** backgrounds sit much further back than Home - in the
 reference they are a distant island under cloud, with the content reading over
