@@ -290,3 +290,68 @@ export const uploads = pgTable(
   },
   (t) => [index('uploads_workspace_idx').on(t.workspaceId, t.createdAt)],
 )
+
+// ------------------------------------------------------------------- auth --
+
+/**
+ * Server-side sessions.
+ *
+ * The cookie carries an opaque id; everything meaningful lives here. That way
+ * revoking a session is a DELETE that takes effect instantly, rather than
+ * waiting for a self-contained token to expire on its own schedule.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    /** Hash of the cookie value, never the value itself. A leaked database
+     *  dump then yields no usable session cookies. */
+    tokenHash: text('token_hash').primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    /** The workspace this session is currently acting in. */
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    userAgent: text('user_agent'),
+    ipAddress: text('ip_address'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('sessions_user_idx').on(t.userId)],
+)
+
+/** Federated identities. One user can sign in with Google and Microsoft both. */
+export const identities = pgTable(
+  'identities',
+  {
+    id: id(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(), // google | microsoft | email
+    /** The provider's stable id for this user - never the email, which changes. */
+    subject: text('subject').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('identities_provider_subject').on(t.provider, t.subject)],
+)
+
+/**
+ * In-flight OAuth authorisations.
+ *
+ * Holds the `state` parameter and the PKCE verifier between redirecting the
+ * user out and receiving them back. Server-side rather than in a cookie so a
+ * CSRF attempt cannot supply its own state, and short-lived because an
+ * authorisation that has sat unfinished for ten minutes is not one we want to
+ * complete.
+ */
+export const oauthStates = pgTable(
+  'oauth_states',
+  {
+    state: text('state').primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    codeVerifier: text('code_verifier').notNull(),
+    /** Where to send the user once the connection succeeds. */
+    returnTo: text('return_to'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('oauth_states_expiry_idx').on(t.expiresAt)],
+)
