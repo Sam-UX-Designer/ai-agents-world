@@ -14,8 +14,22 @@ export type Database = ReturnType<typeof drizzle<typeof schema>>
 
 let client: postgres.Sql | null = null
 let database: Database | null = null
+let override: Database | null = null
+
+/**
+ * Point every caller at a different database.
+ *
+ * Used by the integration tests, which run against an in-process Postgres so
+ * they exercise the real schema, real constraints and real transactions
+ * rather than a hand-written fake that agrees with whatever the code does.
+ * Pass null to restore normal behaviour.
+ */
+export function setDatabase(instance: Database | null): void {
+  override = instance
+}
 
 export function db(): Database {
+  if (override) return override
   if (database) return database
 
   client = postgres(config().DATABASE_URL, {

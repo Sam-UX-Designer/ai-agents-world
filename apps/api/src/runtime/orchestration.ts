@@ -1,0 +1,659 @@
+import type Anthropic from '@anthropic-ai/sdk'
+import { and, eq, inArray } from 'drizzle-orm'
+import {
+  ORCHESTRATOR,
+  executionWaves,
+  getAgent,
+  isTaskTerminal,
+  type AgentState,
+  type PlannedTask,
+  type TaskState,
+} from '@agents-world/shared'
+import { getWorkspace } from '../auth/workspaces.js'
+import { db, schema } from '../db/client.js'
+import { createPlan } from '../orchestrator/planner.js'
+import { synthesise } from '../orchestrator/synthesis.js'
+import { connectedProviders } from '../tools/connections.js'
+import type { EventBus } from '../realtime/bus.js'
+import { executeTask, type RunOutcome } from './executor.js'
+import { buildToolbelt } from './toolbelt.js'
+
+/**
+ * The orchestration loop: a goal from submission to final answer.
+ *
+ * Everything the island shows originates here. Each state change is emitted
+ * before the work it describes begins, so a robot stands up as its agent
+ * starts rather than after it finishes - the world stays a live view, not a
+ * replay running one beat behind.
+ *
+ * The loop is written to be resumable at every boundary. It persists a run's
+ * conversation when it pauses for approval, so `resumeGoal` continues
+ * mid-thought instead of restarting a task the user has already paid for.
+ */
+
+export interface OrchestrationDeps {
+  readonly client: Anthropic
+  readonly bus: EventBus
+}
+
+export interface RunGoalInput {
+  readonly goalId: string
+  readonly workspaceId: string
+  readonly prompt: string
+  readonly timezone: string
+  readonly attachedFilenames?: readonly string[]
+}
+
+/** Plan a goal, then execute it. */
+export async function runGoal(
+  deps: OrchestrationDeps,
+  input: RunGoalInput,
+): Promise<void> {
+  const { bus } = deps
+  const base = { goalId: input.goalId, workspaceId: input.workspaceId }
+
+  try {
+    await bus.emit({ ...base, type: 'goal.state_changed', state: 'planning', error: null })
+    await setGoalState(input.goalId, 'planning')
+    await emitAgentState(bus, base, ORCHESTRATOR.key, null, 'planning', 'Reading your goal')
+
+    const providers = await connectedProviders(input.workspaceId)
+    const planResult = await createPlan(deps.client, {
+      goal: input.prompt,
+      connectedProviders: providers,
+      timezone: input.timezone,
+      ...(input.attachedFilenames ? { attachedFiles: input.attachedFilenames } : {}),
+    })
+
+    if (!planResult.ok) {
+      await failGoal(deps, base, planResult.reason)
+      return
+    }
+
+    const { planId, taskIds } = await persistPlan(input, planResult.plan)
+
+    await bus.emit({
+      ...base,
+      type: 'plan.created',
+      planId,
+      interpretation: planResult.plan.interpretation,
+      tasks: planResult.plan.tasks.map((t) => ({
+        taskId: taskIds.get(t.id) ?? t.id,
+        title: t.title,
+        agentKey: t.agentKey,
+        dependsOn: t.dependsOn.map((d) => taskIds.get(d) ?? d),
+      })),
+    })
+
+    await emitAgentState(
+      bus,
+      base,
+      ORCHESTRATOR.key,
+      null,
+      'waiting',
+      `Coordinating ${planResult.plan.tasks.length} tasks`,
+    )
+
+    await executePlan(deps, input, planResult.waves, taskIds)
+  } catch (err) {
+    await failGoal(deps, base, err instanceof Error ? err.message : String(err))
+  }
+}
+
+/** Resume a goal after every approval on it has been decided. */
+export async function resumeGoal(
+  deps: OrchestrationDeps,
+  goalId: string,
+): Promise<void> {
+  const [goal] = await db()
+    .select()
+    .from(schema.goals)
+    .where(eq(schema.goals.id, goalId))
+    .limit(1)
+
+  if (!goal) throw new Error(`Unknown goal ${goalId}`)
+
+  const stillPending = await db()
+    .select({ id: schema.approvals.id })
+    .from(schema.approvals)
+    .where(and(eq(schema.approvals.goalId, goalId), eq(schema.approvals.state, 'pending')))
+    .limit(1)
+
+  // Several tasks in one wave can each be waiting. Resuming while any remains
+  // undecided would restart the goal with half its answers still missing.
+  if (stillPending.length > 0) return
+
+  const rows = await db()
+    .select()
+    .from(schema.tasks)
+    .where(eq(schema.tasks.goalId, goalId))
+
+  const planned: PlannedTask[] = rows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    agentKey: t.agentKey,
+    dependsOn: t.dependsOn,
+  }))
+
+  const identity = new Map(planned.map((t) => [t.id, t.id]))
+
+  await executePlan(
+    deps,
+    {
+      goalId,
+      workspaceId: goal.workspaceId,
+      prompt: goal.prompt,
+      timezone: 'UTC',
+    },
+    executionWaves(planned),
+    identity,
+  )
+}
+
+/**
+ * Run the plan wave by wave.
+ *
+ * Within a wave every task starts at once - that is the whole point of the
+ * wave grouping, and it is what lights several robots on the island
+ * simultaneously. Between waves we stop, because a later wave's inputs are
+ * the earlier one's outputs.
+ */
+async function executePlan(
+  deps: OrchestrationDeps,
+  input: RunGoalInput,
+  waves: readonly (readonly PlannedTask[])[],
+  taskIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  const { bus } = deps
+  const base = { goalId: input.goalId, workspaceId: input.workspaceId }
+
+  await bus.emit({ ...base, type: 'goal.state_changed', state: 'executing', error: null })
+  await setGoalState(input.goalId, 'executing')
+
+  for (const wave of waves) {
+    const outcomes = await Promise.all(
+      wave.map((task) => runTask(deps, input, task, taskIds)),
+    )
+
+    if (outcomes.some((o) => o === 'awaiting_approval')) {
+      await bus.emit({
+        ...base,
+        type: 'goal.state_changed',
+        state: 'awaiting_approval',
+        error: null,
+      })
+      await setGoalState(input.goalId, 'awaiting_approval')
+      return
+    }
+
+    // A dependent wave cannot run on a missing input. Stopping here beats
+    // handing the next agent a hole and letting it invent a filling.
+    if (outcomes.every((o) => o === 'failed')) {
+      await failGoal(deps, base, 'Every task in this step failed. See the agent details.')
+      return
+    }
+  }
+
+  await finishGoal(deps, input)
+}
+
+type TaskOutcome = 'succeeded' | 'failed' | 'awaiting_approval'
+
+/** Run one task with one agent, reporting state the whole way. */
+async function runTask(
+  deps: OrchestrationDeps,
+  input: RunGoalInput,
+  task: PlannedTask,
+  taskIds: ReadonlyMap<string, string>,
+): Promise<TaskOutcome> {
+  const { bus } = deps
+  const base = { goalId: input.goalId, workspaceId: input.workspaceId }
+  const taskId = taskIds.get(task.id) ?? task.id
+  const agent = getAgent(task.agentKey)
+
+  if (!agent) {
+    await markTaskFailed(bus, base, taskId, task.agentKey, `No agent named ${task.agentKey}`)
+    return 'failed'
+  }
+
+  // Settled on a previous pass. Resuming must not re-send an email that
+  // already went out - and must not re-ask about one the user declined.
+  //
+  // Both halves matter. Skipping only 'succeeded' looks sufficient until a
+  // user declines something: the task is cancelled, resume re-runs it, the
+  // agent reaches for the same tool, and the gate raises a fresh approval.
+  // The user then gets asked again, forever, for a thing they already said no
+  // to. A decline has to be as final as a success.
+  const existing = await db()
+    .select({ state: schema.tasks.state })
+    .from(schema.tasks)
+    .where(eq(schema.tasks.id, taskId))
+    .limit(1)
+
+  const settled = existing[0]?.state
+  if (settled && isTaskTerminal(settled as TaskState)) {
+    return settled === 'succeeded' ? 'succeeded' : 'failed'
+  }
+
+  await emitAgentState(bus, base, agent.key, taskId, 'spawning', `Starting: ${task.title}`)
+  await setTaskState(taskId, 'assigned')
+
+  const [run] = await db()
+    .insert(schema.agentRuns)
+    .values({
+      taskId,
+      goalId: input.goalId,
+      workspaceId: input.workspaceId,
+      agentKey: agent.key,
+      state: 'working',
+    })
+    .returning({ id: schema.agentRuns.id })
+
+  if (!run) throw new Error('Failed to create agent run')
+
+  await emitAgentState(bus, base, agent.key, taskId, 'working', task.title)
+  await setTaskState(taskId, 'running')
+
+  const workspace = await getWorkspace(input.workspaceId)
+  const providers = await connectedProviders(input.workspaceId)
+  const toolbelt = buildToolbelt(agent, providers)
+  const dependencyResults = await loadDependencyResults(task, taskIds)
+  const priorRun = await loadPausedRun(taskId)
+
+  let outcome: RunOutcome
+  try {
+    outcome = await executeTask(
+      deps.client,
+      {
+        agent,
+        toolbelt,
+        context: { workspaceId: input.workspaceId, timezone: input.timezone },
+        taskDescription: task.description,
+        dependencyResults,
+        attachments: [],
+        autonomy: workspace?.autonomyLevel ?? 'ask_always',
+        grantedActionTypes: workspace?.grantedActionTypes ?? [],
+        ...(priorRun?.conversation
+          ? { messages: priorRun.conversation as Anthropic.MessageParam[] }
+          : {}),
+        ...(priorRun?.approvedToolIds ? { approvedToolIds: priorRun.approvedToolIds } : {}),
+      },
+      {
+        onToolCall: (record) => {
+          void db()
+            .insert(schema.toolCalls)
+            .values({
+              runId: run.id,
+              workspaceId: input.workspaceId,
+              agentKey: agent.key,
+              toolId: record.toolId,
+              effect: record.effect,
+              permission: record.permission,
+              summary: record.summary,
+              outcome: record.outcome,
+              error: record.error,
+              durationMs: record.durationMs,
+            })
+            .catch((e) => console.error('[orchestration] failed to record tool call', e))
+
+          void bus
+            .emit({
+              ...base,
+              type: 'tool.called',
+              taskId,
+              agentKey: agent.key,
+              toolId: record.toolId,
+              summary: record.summary,
+              outcome: record.outcome,
+            })
+            .catch((e) => console.error('[orchestration] failed to emit tool call', e))
+        },
+        onStep: (completed) => {
+          void bus
+            .emit({
+              ...base,
+              type: 'task.progress',
+              taskId,
+              agentKey: agent.key,
+              completedSteps: completed,
+              // Unknown ahead of time: the agent decides how many calls it
+              // needs. Reported as measured steps with no denominator rather
+              // than a percentage we would have to invent.
+              totalSteps: null,
+              confidence: 'measured',
+              note: null,
+            })
+            .catch((e) => console.error('[orchestration] failed to emit progress', e))
+        },
+      },
+    )
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await completeRun(run.id, 'error', null, message)
+    await markTaskFailed(bus, base, taskId, agent.key, message)
+    return 'failed'
+  }
+
+  if (outcome.status === 'awaiting_approval') {
+    await db()
+      .update(schema.agentRuns)
+      .set({
+        state: 'needs_input',
+        conversation: outcome.messages as unknown[],
+        inputTokens: outcome.usage.inputTokens,
+        outputTokens: outcome.usage.outputTokens,
+      })
+      .where(eq(schema.agentRuns.id, run.id))
+
+    await setTaskState(taskId, 'awaiting_approval')
+
+    for (const pending of outcome.approvals) {
+      const [approval] = await db()
+        .insert(schema.approvals)
+        .values({
+          taskId,
+          goalId: input.goalId,
+          workspaceId: input.workspaceId,
+          agentKey: agent.key,
+          actionType: pending.actionType,
+          description: pending.description,
+          preview: pending.preview,
+        })
+        .returning({ id: schema.approvals.id })
+
+      if (!approval) continue
+
+      await bus.emit({
+        ...base,
+        type: 'approval.requested',
+        approvalId: approval.id,
+        taskId,
+        agentKey: agent.key,
+        actionType: pending.actionType,
+        description: pending.description,
+        preview: pending.preview,
+      })
+    }
+
+    await emitAgentState(
+      bus,
+      base,
+      agent.key,
+      taskId,
+      'needs_input',
+      'Waiting for your approval',
+    )
+    return 'awaiting_approval'
+  }
+
+  if (outcome.status === 'failed') {
+    await completeRun(run.id, 'error', null, outcome.error, outcome.usage)
+    await markTaskFailed(bus, base, taskId, agent.key, outcome.error)
+    return 'failed'
+  }
+
+  await completeRun(run.id, 'completed', { text: outcome.result }, null, outcome.usage)
+  await setTaskState(taskId, 'succeeded')
+  await bus.emit({ ...base, type: 'task.state_changed', taskId, state: 'succeeded', error: null })
+  await emitAgentState(bus, base, agent.key, taskId, 'completed', 'Finished')
+
+  return 'succeeded'
+}
+
+/** Combine every task result into the answer the user receives. */
+async function finishGoal(deps: OrchestrationDeps, input: RunGoalInput): Promise<void> {
+  const { bus } = deps
+  const base = { goalId: input.goalId, workspaceId: input.workspaceId }
+
+  await bus.emit({ ...base, type: 'goal.state_changed', state: 'synthesising', error: null })
+  await setGoalState(input.goalId, 'synthesising')
+  await emitAgentState(
+    bus,
+    base,
+    ORCHESTRATOR.key,
+    null,
+    'working',
+    'Putting the results together',
+  )
+
+  const results = await loadTaskResults(input.goalId)
+  const summary = await synthesise(deps.client, {
+    goal: input.prompt,
+    results,
+    timezone: input.timezone,
+  })
+
+  const [artifact] = await db()
+    .insert(schema.artifacts)
+    .values({
+      goalId: input.goalId,
+      workspaceId: input.workspaceId,
+      title: 'Summary',
+      kind: 'summary',
+      content: summary,
+    })
+    .returning({ id: schema.artifacts.id })
+
+  await db()
+    .update(schema.goals)
+    .set({ state: 'completed', summary, completedAt: new Date() })
+    .where(eq(schema.goals.id, input.goalId))
+
+  await emitAgentState(bus, base, ORCHESTRATOR.key, null, 'completed', 'Done')
+  await bus.emit({
+    ...base,
+    type: 'goal.completed',
+    summary,
+    artifacts: artifact ? [{ artifactId: artifact.id, title: 'Summary', kind: 'summary' }] : [],
+  })
+}
+
+// ------------------------------------------------------------- persistence --
+
+async function persistPlan(
+  input: RunGoalInput,
+  plan: { interpretation: string; tasks: readonly PlannedTask[]; unsupported: string[] },
+): Promise<{ planId: string; taskIds: Map<string, string> }> {
+  return db().transaction(async (tx) => {
+    const [row] = await tx
+      .insert(schema.plans)
+      .values({
+        goalId: input.goalId,
+        workspaceId: input.workspaceId,
+        interpretation: plan.interpretation,
+        unsupported: plan.unsupported,
+      })
+      .returning({ id: schema.plans.id })
+
+    if (!row) throw new Error('Failed to persist plan')
+
+    const waves = executionWaves(plan.tasks)
+    const waveOf = new Map<string, number>()
+    waves.forEach((wave, index) => wave.forEach((t) => waveOf.set(t.id, index)))
+
+    // Insert first to mint real ids, then rewrite dependsOn from plan-local
+    // ids to ours. Two passes because a task can depend on one inserted after
+    // it, so no single ordering makes the mapping available up front.
+    const taskIds = new Map<string, string>()
+    for (const task of plan.tasks) {
+      const [inserted] = await tx
+        .insert(schema.tasks)
+        .values({
+          planId: row.id,
+          goalId: input.goalId,
+          workspaceId: input.workspaceId,
+          planLocalId: task.id,
+          title: task.title,
+          description: task.description,
+          agentKey: task.agentKey,
+          dependsOn: [],
+          wave: waveOf.get(task.id) ?? 0,
+          state: task.dependsOn.length > 0 ? 'blocked' : 'pending',
+        })
+        .returning({ id: schema.tasks.id })
+
+      if (inserted) taskIds.set(task.id, inserted.id)
+    }
+
+    for (const task of plan.tasks) {
+      const ourId = taskIds.get(task.id)
+      if (!ourId || task.dependsOn.length === 0) continue
+      await tx
+        .update(schema.tasks)
+        .set({ dependsOn: task.dependsOn.map((d) => taskIds.get(d) ?? d) })
+        .where(eq(schema.tasks.id, ourId))
+    }
+
+    return { planId: row.id, taskIds }
+  })
+}
+
+async function loadDependencyResults(
+  task: PlannedTask,
+  taskIds: ReadonlyMap<string, string>,
+): Promise<readonly { title: string; result: string }[]> {
+  if (task.dependsOn.length === 0) return []
+
+  const ids = task.dependsOn.map((d) => taskIds.get(d) ?? d)
+  const rows = await db()
+    .select({ title: schema.tasks.title, result: schema.agentRuns.result })
+    .from(schema.agentRuns)
+    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.agentRuns.taskId))
+    .where(
+      and(inArray(schema.agentRuns.taskId, ids), eq(schema.agentRuns.state, 'completed')),
+    )
+
+  return rows.map((r) => ({
+    title: r.title,
+    result: typeof r.result?.text === 'string' ? r.result.text : '',
+  }))
+}
+
+async function loadTaskResults(
+  goalId: string,
+): Promise<readonly { title: string; agentKey: string; result: string }[]> {
+  const rows = await db()
+    .select({
+      title: schema.tasks.title,
+      agentKey: schema.agentRuns.agentKey,
+      result: schema.agentRuns.result,
+    })
+    .from(schema.agentRuns)
+    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.agentRuns.taskId))
+    .where(and(eq(schema.agentRuns.goalId, goalId), eq(schema.agentRuns.state, 'completed')))
+
+  return rows.map((r) => ({
+    title: r.title,
+    agentKey: r.agentKey,
+    result: typeof r.result?.text === 'string' ? r.result.text : '',
+  }))
+}
+
+async function loadPausedRun(
+  taskId: string,
+): Promise<{ conversation: unknown[] | null; approvedToolIds: string[] } | null> {
+  const [row] = await db()
+    .select({
+      conversation: schema.agentRuns.conversation,
+      approvedToolIds: schema.agentRuns.approvedToolIds,
+    })
+    .from(schema.agentRuns)
+    .where(and(eq(schema.agentRuns.taskId, taskId), eq(schema.agentRuns.state, 'needs_input')))
+    .limit(1)
+
+  return row ?? null
+}
+
+async function completeRun(
+  runId: string,
+  state: string,
+  result: Record<string, unknown> | null,
+  error: string | null,
+  usage?: { inputTokens: number; outputTokens: number },
+): Promise<void> {
+  await db()
+    .update(schema.agentRuns)
+    .set({
+      state,
+      result,
+      error,
+      completedAt: new Date(),
+      // Cleared on completion: the conversation only exists to survive a
+      // pause, and keeping transcripts of finished runs stores user mail
+      // contents we have no reason to retain.
+      conversation: null,
+      ...(usage
+        ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens }
+        : {}),
+    })
+    .where(eq(schema.agentRuns.id, runId))
+}
+
+// ----------------------------------------------------------------- emitting --
+
+type Base = { goalId: string; workspaceId: string }
+
+async function emitAgentState(
+  bus: EventBus,
+  base: Base,
+  agentKey: string,
+  taskId: string | null,
+  state: AgentState,
+  activity: string,
+): Promise<void> {
+  await bus.emit({
+    ...base,
+    type: 'agent.state_changed',
+    agentKey,
+    taskId,
+    state,
+    activity,
+    error: null,
+  })
+}
+
+async function markTaskFailed(
+  bus: EventBus,
+  base: Base,
+  taskId: string,
+  agentKey: string,
+  error: string,
+): Promise<void> {
+  await setTaskState(taskId, 'failed', error)
+  await bus.emit({ ...base, type: 'task.state_changed', taskId, state: 'failed', error })
+  await bus.emit({
+    ...base,
+    type: 'agent.state_changed',
+    agentKey,
+    taskId,
+    state: 'error',
+    activity: 'Could not finish',
+    error,
+  })
+}
+
+async function failGoal(
+  deps: OrchestrationDeps,
+  base: Base,
+  error: string,
+): Promise<void> {
+  await db()
+    .update(schema.goals)
+    .set({ state: 'failed', error, completedAt: new Date() })
+    .where(eq(schema.goals.id, base.goalId))
+    .catch(() => undefined)
+
+  await deps.bus
+    .emit({ ...base, type: 'goal.state_changed', state: 'failed', error })
+    .catch((e) => console.error('[orchestration] failed to emit failure', e))
+}
+
+const setGoalState = (goalId: string, state: string): Promise<unknown> =>
+  db().update(schema.goals).set({ state }).where(eq(schema.goals.id, goalId))
+
+const setTaskState = (taskId: string, state: string, error?: string): Promise<unknown> =>
+  db()
+    .update(schema.tasks)
+    .set({ state, ...(error ? { error } : {}) })
+    .where(eq(schema.tasks.id, taskId))

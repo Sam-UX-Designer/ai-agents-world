@@ -17,8 +17,19 @@ import type { WorldEvent } from '@agents-world/shared'
  *    showing work the server has no record of.
  */
 
-/** What a payload looks like before the bus stamps it with seq and time. */
-export type EventDraft = Omit<WorldEvent, 'seq' | 'at'>
+/**
+ * What a payload looks like before the bus stamps it with seq and time.
+ *
+ * Distributes over the union deliberately. A bare `Omit<WorldEvent, ...>`
+ * collapses a discriminated union to the keys every member shares, which
+ * would silently erase `agentKey`, `taskId` and the rest - every event would
+ * typecheck as the empty intersection and every real field would be rejected.
+ */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never
+
+export type EventDraft = DistributiveOmit<WorldEvent, 'seq' | 'at'>
 
 export interface EventStore {
   /**

@@ -169,6 +169,12 @@ export const agentRuns = pgTable(
     state: text('state').notNull().default('spawning'),
     /** Structured result handed back to the Orchestrator. */
     result: jsonb('result').$type<Record<string, unknown>>(),
+    /** The model conversation, persisted only while paused for approval.
+     *  Resuming replays it verbatim so the agent continues mid-thought
+     *  rather than restarting and redoing work the user already paid for. */
+    conversation: jsonb('conversation').$type<unknown[]>(),
+    /** Tool ids the user approved for this run. */
+    approvedToolIds: jsonb('approved_tool_ids').$type<string[]>().notNull().default([]),
     error: text('error'),
     completedSteps: integer('completed_steps').notNull().default(0),
     totalSteps: integer('total_steps'),
