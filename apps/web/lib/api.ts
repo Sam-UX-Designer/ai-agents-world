@@ -64,6 +64,29 @@ export interface Me {
   connections: { id: string; provider: string; accountLabel: string }[]
 }
 
+/** What /integrations returns: the catalogue merged with live connection state. */
+export interface IntegrationInfo {
+  id: string
+  name: string
+  description: string
+  category: string
+  provider: string | null
+  icon: string
+  status: 'available' | 'planned' | 'blocked'
+  statusNote: string | null
+  connection: { id: string; accountLabel: string; connectedAt: string } | null
+  capabilities: { id: string; label: string; description: string }[]
+  permissions: { toolId: string; label: string; kind: 'read' | 'write' | 'approval'; description: string }[]
+  agents: {
+    agentKey: string
+    agentName: string
+    accent: string
+    grantedCount: number
+    totalCount: number
+    level: 'read' | 'write' | 'act'
+  }[]
+}
+
 export const api = {
   me: () => request<Me>('/me'),
 
@@ -75,6 +98,14 @@ export const api = {
   agents: () => request<AgentInfo[]>('/agents'),
 
   providers: () => request<ProviderDefinition[]>('/providers'),
+
+  integrations: () => request<IntegrationInfo[]>('/integrations'),
+
+  requestTool: (name: string, reason?: string) =>
+    request<{ received: boolean; name: string }>('/integrations/requests', {
+      method: 'POST',
+      body: JSON.stringify({ name, reason }),
+    }),
 
   connectUrl: (provider: string) =>
     request<{ url: string; permissions: string[] }>(`/connect/${provider}`),

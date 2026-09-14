@@ -7,6 +7,11 @@ import {
   PROVIDERS,
   getProvider,
   resolveTools,
+  INTEGRATIONS,
+  agentsWithAccess,
+  capabilitiesFor,
+  integrationIcon,
+  permissionsFor,
   type ConnectionProvider,
   type ProviderDefinition,
   type ProviderStatus,
@@ -256,6 +261,97 @@ export async function registerRoutes(
           : null,
         connections: await listConnections(ctx.workspaceId),
       }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  /**
+   * The integration catalogue, merged with this workspace's live connections.
+   *
+   * Status is computed per request rather than stored on the catalogue: a
+   * deployment without Slack credentials must not offer a Connect button that
+   * cannot complete, and a workspace that has already connected Google should
+   * see Gmail and Calendar as connected without either being re-declared.
+   */
+  app.get('/integrations', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const connections = await listConnections(ctx.workspaceId)
+
+      return INTEGRATIONS.map((integration) => {
+        // A provider token is shared across the integrations that sit on it -
+        // Gmail, Calendar and Drive are all one Google grant. But an
+        // integration with nothing built behind it must never report itself
+        // connected off the back of a sibling's token: the user would reach
+        // for a capability that does not exist.
+        const connection =
+          integration.provider && integration.status === 'available'
+            ? connections.find((c) => c.provider === integration.provider)
+            : undefined
+
+        const configured =
+          integration.provider !== null && isConfigured(integration.provider)
+
+        const status: string =
+          integration.status !== 'available'
+            ? 'planned'
+            : configured
+              ? 'available'
+              : 'blocked'
+
+        return {
+          ...integration,
+          icon: integrationIcon(integration.id),
+          status,
+          statusNote:
+            status === 'blocked'
+              ? 'Not configured on this deployment yet.'
+              : integration.statusNote,
+          connection: connection
+            ? {
+                id: connection.id,
+                accountLabel: connection.accountLabel,
+                connectedAt: connection.connectedAt,
+              }
+            : null,
+          capabilities: capabilitiesFor(integration).map((c) => ({
+            id: c.id,
+            label: c.label,
+            description: c.description,
+          })),
+          permissions: permissionsFor(integration),
+          agents: agentsWithAccess(integration),
+        }
+      })
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  /**
+   * A request for an integration that does not exist yet.
+   *
+   * Recorded rather than emailed: what matters is knowing which integrations
+   * customers keep asking for, and a row is easier to count than an inbox.
+   */
+  const toolRequest = z.object({
+    name: z.string().min(1).max(120),
+    reason: z.string().max(1000).optional(),
+  })
+
+  app.post('/integrations/requests', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const body = toolRequest.safeParse(request.body)
+      if (!body.success) return reply.status(400).send({ error: 'A tool name is required' })
+
+      request.log.info(
+        { workspaceId: ctx.workspaceId, tool: body.data.name, reason: body.data.reason },
+        'integration requested',
+      )
+
+      return { received: true, name: body.data.name }
     } catch (err) {
       return respondWithError(reply, err)
     }

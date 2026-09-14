@@ -789,3 +789,863 @@ html, body {
     bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + var(--nav-h) + var(--cmd-h) + 2 * var(--gap));
   }
 }
+
+/* ===========================================================================
+   Liquid glass
+   ---------------------------------------------------------------------------
+   A layered material, not a translucent fill. Six things stack to make it
+   read as physical glass:
+
+     1. a tinted base that darkens toward the bottom, as thick glass does
+     2. backdrop blur with saturation, so colour survives instead of greying
+     3. a bright hairline along the top edge - light catching the rim
+     4. a dimmer hairline along the bottom - the rim in shadow
+     5. a soft diagonal sweep across the surface, the internal reflection
+     6. depth shadow beneath, so it sits above the world rather than on it
+
+   The border is a gradient rather than a flat colour: a real rim is brighter
+   where it faces the light. That needs mask compositing, which is why it is a
+   pseudo-element rather than a `border`.
+
+   Used by Tools. Home keeps `.glass` so its appearance is unchanged.
+   =========================================================================== */
+
+.lg {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--color-ink-800) 62%, transparent) 0%,
+      color-mix(in srgb, var(--color-ink-900) 76%, transparent) 100%
+    );
+  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  box-shadow:
+    /* top rim, lit */
+    inset 0 1px 0 rgb(255 255 255 / 0.13),
+    /* bottom rim, in shadow */
+    inset 0 -1px 0 rgb(0 0 0 / 0.28),
+    /* depth */
+    0 20px 56px rgb(2 6 14 / 0.46),
+    0 2px 8px rgb(2 6 14 / 0.3);
+}
+
+/* The internal reflection: a soft sweep across the upper-left of the surface. */
+.lg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 0.10) 0%, transparent 55%),
+    radial-gradient(90% 60% at 88% 108%, rgb(62 155 255 / 0.07) 0%, transparent 60%);
+}
+
+/*
+ * The rim.
+ *
+ * A gradient hairline drawn as a ring: painted over the whole box, then masked
+ * so only the 1px edge survives. `border: 1px solid` can only be one colour,
+ * and a rim that is equally bright all the way round reads as a stroke rather
+ * than as an edge catching light.
+ */
+.lg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    rgb(255 255 255 / 0.26) 0%,
+    rgb(255 255 255 / 0.07) 32%,
+    rgb(255 255 255 / 0.04) 68%,
+    rgb(120 180 255 / 0.14) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Thinner variant for small surfaces: pills, cards, buttons. */
+.lg--thin {
+  backdrop-filter: blur(18px) saturate(175%);
+  -webkit-backdrop-filter: blur(18px) saturate(175%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.11),
+    inset 0 -1px 0 rgb(0 0 0 / 0.22),
+    0 8px 22px rgb(2 6 14 / 0.36);
+}
+
+/*
+ * Where blur is unavailable the material cannot work, so lean opaque instead.
+ * Glass with no blur over this artwork is unreadable, and legibility beats
+ * the effect.
+ */
+@supports not (backdrop-filter: blur(1px)) {
+  .lg { background: color-mix(in srgb, var(--color-ink-900) 93%, transparent); }
+}
+
+/* ===========================================================================
+   Tools
+   ---------------------------------------------------------------------------
+   The catalogue floats over the world exactly as Home's panels do. It reserves
+   no layout space of its own: it is positioned into the gap between the
+   floating navigation, the top-right controls and the command bar, so the
+   island still reaches every edge behind it.
+
+   One set of measurements drives the whole screen, so the detail panel opening
+   cannot push the grid out from under the header.
+   =========================================================================== */
+
+:root {
+  --nav-w: 176px;
+  /* input row + pills + padding, with room to breathe above it */
+  --cmd-reserve: 138px;
+  --detail-w: 372px;
+}
+
+.tools {
+  position: fixed;
+  z-index: 25;
+  left: calc(var(--edge) * 2 + var(--nav-w));
+  right: var(--edge);
+  top: calc(var(--edge) + 58px);
+  bottom: calc(var(--edge) + var(--cmd-reserve));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/*
+ * Grid and detail panel share one row.
+ *
+ * The panel is a column beside the grid, not a sheet over it: the header and
+ * the filters sit above this row, so opening a tool never moves the control
+ * the user just clicked. Content also never disappears behind the panel,
+ * which is the usual way a layout like this fails on a laptop screen.
+ */
+.tools__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+}
+
+/* ------------------------------------------------------------- header -- */
+
+.tools__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.tools__head h1 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 14px rgb(4 8 16 / 0.8);
+}
+
+.tools__head p {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  color: var(--color-text-dim);
+  text-shadow: 0 1px 10px rgb(4 8 16 / 0.8);
+}
+
+.tools__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(280px, 34vw);
+  padding: 0 12px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--color-text-dim);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--color-text);
+}
+.search input::placeholder { color: var(--color-text-dim); }
+/* Safari draws its own clear affordance on type="search"; ours is styled. */
+.search input::-webkit-search-cancel-button { display: none; }
+
+.search button {
+  display: grid;
+  place-items: center;
+  width: 20px; height: 20px;
+  border: 0; border-radius: 50%;
+  background: rgb(255 255 255 / 0.12);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.search button:hover { background: rgb(255 255 255 / 0.2); }
+
+.btn--request { height: 40px; border-radius: 999px; white-space: nowrap; }
+
+/* --------------------------------------------------------- categories -- */
+
+.cats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cat {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 520;
+  color: var(--color-text);
+  cursor: pointer;
+  border: 0;
+  transition: transform 140ms ease, color 140ms ease;
+}
+.cat:hover { transform: translateY(-1px); }
+
+/* The active filter is the one solid surface in the row - the same rule the
+   navigation follows, so "where am I" reads the same way on every screen. */
+.cat[data-active="true"] {
+  background: linear-gradient(140deg, var(--color-accent), #2472D8);
+  color: #fff;
+  font-weight: 600;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 6px 18px rgb(20 90 190 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.24);
+}
+.cat[data-active="true"]::after { display: none; }
+
+.cats__count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  text-shadow: 0 1px 10px rgb(4 8 16 / 0.8);
+  white-space: nowrap;
+}
+
+.tools__error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-danger);
+  text-shadow: 0 1px 10px rgb(4 8 16 / 0.8);
+}
+
+/* --------------------------------------------------------------- grid -- */
+
+/* Only this scrolls. The header and filters stay put, so the thing you are
+   filtering with never scrolls away from the thing it filters. */
+.tools__scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  /* Cards dissolve at both ends instead of being cut against an invisible
+     edge - there is artwork behind them, not a page background. */
+  mask-image: linear-gradient(
+    to bottom, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%
+  );
+  padding: 4px 2px 0 0;
+}
+.tools__scroll::-webkit-scrollbar { width: 7px; }
+.tools__scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.16);
+  border-radius: 999px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 12px;
+  padding-bottom: 6px;
+}
+
+.toolcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(.22,.9,.3,1), box-shadow 180ms ease;
+}
+.toolcard:hover { transform: translateY(-2px); }
+
+/* Selection is a rim, not a fill: the card is still glass, it is just the one
+   catching the light. */
+.toolcard[data-selected="true"] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 0 0 1px rgb(62 155 255 / 0.55),
+    0 12px 32px rgb(12 60 130 / 0.34);
+}
+
+.toolcard--skeleton {
+  height: 168px;
+  cursor: default;
+  animation: toolshimmer 1.5s ease-in-out infinite;
+}
+@keyframes toolshimmer { 0%, 100% { opacity: .5 } 50% { opacity: .8 } }
+
+.toolicon {
+  border-radius: 12px;
+  object-fit: contain;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  padding: 6px;
+}
+
+/* Until the logo file is uploaded, a monogram - which reads as deliberate,
+   where a broken-image glyph reads as a bug. */
+.toolicon--fallback {
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--color-text);
+  background: linear-gradient(150deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.05));
+  padding: 0;
+}
+
+.toolcard__name {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.toolcard__desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+  /* Two lines keeps every card the same height without truncating mid-word. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.toolcard__cat {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  color: var(--color-accent-soft);
+  background: rgb(62 155 255 / 0.14);
+  border: 1px solid rgb(62 155 255 / 0.2);
+}
+
+.toolcard__foot {
+  margin-top: auto;
+  padding-top: 10px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toolcard__connect {
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 580;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  transition: filter 150ms ease, opacity 150ms ease;
+}
+.toolcard__connect:hover:not(:disabled) { filter: brightness(1.1); }
+.toolcard__connect:disabled {
+  background: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.1);
+  color: var(--color-text-dim);
+  cursor: not-allowed;
+}
+
+.toolcard__connected {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 570;
+  color: var(--color-ok);
+}
+
+.toolcard__more {
+  display: grid;
+  place-items: center;
+  width: 26px; height: 26px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+}
+.toolcard__more:hover { background: rgb(255 255 255 / 0.1); color: var(--color-text); }
+
+.tools__empty {
+  padding: 28px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  max-width: 420px;
+  margin: 20px auto 0;
+}
+.tools__empty strong { font-size: 15px; font-weight: 620; }
+.tools__empty p { margin: 0; font-size: 13px; color: var(--color-text-dim); }
+
+/* ------------------------------------------------------- detail panel -- */
+
+.detail {
+  position: relative;
+  z-index: 35;
+  width: var(--detail-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  animation: detailin 220ms cubic-bezier(.22,.9,.3,1);
+}
+@keyframes detailin {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.detail__close {
+  position: absolute;
+  top: 14px; right: 14px;
+  display: grid; place-items: center;
+  width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.detail__close:hover { background: rgb(255 255 255 / 0.16); }
+
+.detail__head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-right: 34px;
+}
+.detail__title h2 { margin: 0; font-size: 18px; font-weight: 640; letter-spacing: -0.015em; }
+.detail__title p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--color-text-dim); }
+
+.detail__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.sbadge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 570;
+}
+.sbadge[data-tone="ok"] {
+  color: var(--color-ok);
+  background: rgb(52 211 153 / 0.14);
+  border: 1px solid rgb(52 211 153 / 0.26);
+}
+.sbadge[data-tone="idle"] {
+  color: var(--color-text-dim);
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+.sbadge[data-tone="soon"] {
+  color: var(--color-warn);
+  background: rgb(255 176 32 / 0.13);
+  border: 1px solid rgb(255 176 32 / 0.24);
+}
+
+.detail__cat {
+  font-size: 11px;
+  color: var(--color-text-dim);
+}
+
+.detail__tabs {
+  display: flex;
+  gap: 3px;
+  margin: 16px 0 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.detail__tab {
+  flex: 1;
+  padding: 7px 6px;
+  border: 0; border-radius: 9px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--color-text-dim);
+  background: transparent;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+.detail__tab:hover { color: var(--color-text); }
+.detail__tab[data-active="true"] {
+  background: rgb(255 255 255 / 0.13);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.detail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 2px 4px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.detail__body::-webkit-scrollbar { width: 6px; }
+.detail__body::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.16); border-radius: 999px; }
+
+.detail__label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.detail__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+.detail__foot .btn { flex: 1; }
+.detail__account {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail__empty {
+  padding: 22px 4px;
+  text-align: center;
+}
+.detail__empty strong { font-size: 13.5px; font-weight: 600; }
+.detail__empty p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-dim); }
+
+/* ---------------------------------------------------- overview + perms -- */
+
+.caps { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.caps__row { display: flex; align-items: flex-start; gap: 10px; }
+.caps__check { flex-shrink: 0; margin-top: 1px; color: var(--color-ok); }
+.caps__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.caps__text strong { font-size: 13px; font-weight: 570; }
+.caps__text em { font-size: 12px; font-style: normal; line-height: 1.45; color: var(--color-text-dim); }
+
+.perms { display: grid; gap: 16px; }
+
+/*
+ * Three groups, colour-coded by consequence: quiet reads, quiet drafts, and
+ * the things that stop and wait for a person. The colour is reinforcement
+ * only - each group is titled in words too, because colour alone must never
+ * be the carrier of something this important.
+ */
+.perms__group {
+  padding: 13px;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 0.045);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-left-width: 3px;
+}
+.perms__group[data-kind="read"] { border-left-color: var(--color-accent); }
+.perms__group[data-kind="write"] { border-left-color: var(--color-ok); }
+.perms__group[data-kind="approval"] { border-left-color: var(--color-warn); }
+
+.perms__head { display: flex; align-items: flex-start; gap: 9px; }
+.perms__head > svg { flex-shrink: 0; margin-top: 1px; }
+.perms__group[data-kind="read"] .perms__head > svg { color: var(--color-accent-soft); }
+.perms__group[data-kind="write"] .perms__head > svg { color: var(--color-ok); }
+.perms__group[data-kind="approval"] .perms__head > svg { color: var(--color-warn); }
+
+.perms__head span { display: flex; flex-direction: column; gap: 1px; }
+.perms__head strong { font-size: 12.5px; font-weight: 620; }
+.perms__head em { font-size: 11.5px; font-style: normal; color: var(--color-text-dim); }
+
+.perms__list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  display: grid;
+  gap: 9px;
+}
+.perms__list li { display: flex; flex-direction: column; gap: 2px; }
+.perms__list strong { font-size: 12.5px; font-weight: 540; }
+.perms__list em { font-size: 11.5px; font-style: normal; line-height: 1.45; color: var(--color-text-dim); }
+
+/* ---------------------------------------------------------- agent list -- */
+
+.agentlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.agentlist__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.agentlist__avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.14);
+}
+.agentlist__avatar--fallback {
+  display: grid; place-items: center;
+  font-size: 13px; font-weight: 650; color: #fff;
+}
+
+.agentlist__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.agentlist__who strong { font-size: 12.5px; font-weight: 580; }
+.agentlist__who em { font-size: 11px; font-style: normal; color: var(--color-text-dim); }
+
+.agentlist__state {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 560;
+  color: var(--color-text-dim);
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+.agentlist__state[data-live="true"] {
+  color: var(--color-ok);
+  background: rgb(52 211 153 / 0.13);
+  border-color: rgb(52 211 153 / 0.24);
+}
+
+/* -------------------------------------------------------------- modal -- */
+
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; }
+.modal__scrim {
+  position: absolute; inset: 0;
+  background: rgb(2 6 14 / 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal__panel {
+  position: relative;
+  width: min(420px, calc(100vw - 2 * var(--edge)));
+  padding: 24px;
+  animation: modalin 200ms cubic-bezier(.22,.9,.3,1);
+}
+@keyframes modalin {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal__title { margin: 0; font-size: 18px; font-weight: 640; letter-spacing: -0.015em; }
+.modal__sub { margin: 5px 0 18px; font-size: 12.5px; line-height: 1.5; color: var(--color-text-dim); }
+
+.field { display: block; margin-bottom: 14px; }
+.field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--color-text-dim);
+}
+.field > span em { font-style: normal; opacity: .7; }
+.field input, .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--color-text);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  outline: 0;
+  resize: vertical;
+}
+.field input:focus, .field textarea:focus { border-color: rgb(62 155 255 / 0.5); }
+.field input::placeholder, .field textarea::placeholder { color: var(--color-text-dim); }
+
+.modal__error { margin: 0 0 12px; font-size: 12.5px; color: var(--color-danger); }
+.modal__actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 4px; }
+
+.modal__done { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 16px 0; }
+.modal__done strong { font-size: 15.5px; font-weight: 620; }
+.modal__done p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-dim); }
+
+/* --------------------------------------------------------- responsive -- */
+
+/*
+ * Short laptop screens.
+ *
+ * Height, not width, is what squeezes this layout: the detail panel is bound
+ * by the strip kept clear for the command bar, so on a 720px screen its body
+ * is down to two rows. The header and that reserved strip are the only slack
+ * there is, so take some of it back rather than letting the panel become a
+ * scroll-only column.
+ */
+@media (max-height: 800px) {
+  :root { --cmd-reserve: 122px; }
+  .tools { top: calc(var(--edge) + 48px); gap: 10px; }
+  .tools__head h1 { font-size: 23px; }
+}
+
+/* Between the phone breakpoint and a full laptop the detail panel would leave
+   the grid a single column, so it becomes an overlay instead of a column. */
+@media (max-width: 1100px) {
+  /* Below this the grid would be down to one column beside the panel, which
+     is no longer a grid. The panel floats over the right of it instead. */
+  .tools__main { position: relative; }
+  .detail {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    /* Over the grid rather than over the ocean, so it leans opaque - glass
+       on top of dense text is just illegible text. */
+    background: linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--color-ink-800) 95%, transparent),
+      color-mix(in srgb, var(--color-ink-950) 97%, transparent)
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.13),
+      0 24px 70px rgb(2 6 14 / 0.62);
+  }
+}
+
+@media (max-width: 900px) {
+  /* Navigation is a bottom tab bar here, so the catalogue takes the full
+     width and the vertical stack absorbs the difference. */
+  .tools {
+    left: var(--edge);
+    right: var(--edge);
+    top: calc(var(--edge) + 52px);
+    bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + var(--nav-h) + var(--cmd-h) + 2 * var(--gap));
+    gap: 11px;
+  }
+  .tools__head { align-items: flex-start; gap: 12px; }
+  .tools__head h1 { font-size: 22px; }
+  .tools__actions { width: 100%; }
+  .search { width: auto; flex: 1; }
+  .search input { font-size: 16px; } /* 16px stops iOS zooming on focus */
+
+  /* One scrollable row rather than three wrapped ones - wrapped filters ate
+     a third of a phone screen. */
+  .cats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cats::-webkit-scrollbar { display: none; }
+  .cat { flex-shrink: 0; }
+  .cats__count { display: none; }
+
+  .grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+  .toolcard { padding: 13px; }
+
+  /* A side panel on a phone is the whole screen, so it becomes a sheet that
+     rises from the bottom - the platform convention for exactly this. */
+  .detail {
+    position: fixed;
+    left: var(--edge);
+    right: var(--edge);
+    width: auto;
+    top: auto;
+    /* Above the command bar, not over it. `.tools` is its own stacking
+       context, so a sheet that overlapped the input would be painted under
+       it however high its z-index - and the input stays usable this way. */
+    bottom: calc(
+      max(var(--edge), env(safe-area-inset-bottom))
+      + var(--nav-h) + var(--cmd-h) + 2 * var(--gap)
+    );
+    max-height: 58dvh;
+    animation: sheetin 240ms cubic-bezier(.22,.9,.3,1);
+    /* Nearly opaque: this sheet covers the grid, not the ocean, and glass
+       over dense text is just illegible text. */
+    background: linear-gradient(
+      168deg,
+      color-mix(in srgb, var(--color-ink-800) 96%, transparent),
+      color-mix(in srgb, var(--color-ink-950) 98%, transparent)
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.13),
+      0 -12px 40px rgb(2 6 14 / 0.55),
+      0 24px 70px rgb(2 6 14 / 0.7);
+  }
+
+  /* Search box and button cannot both spell themselves out at 390px, so the
+     button keeps its icon and drops its label. */
+  .btn--request { width: 40px; padding: 0; }
+  .btn--request span { display: none; }
+  @keyframes sheetin {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: none; }
+  }
+}

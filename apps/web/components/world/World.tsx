@@ -222,7 +222,13 @@ export function TaskInProgress() {
  * a footer, so it reads as speaking into the world rather than filling in a
  * form beneath it.
  */
-export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void }) {
+export function CommandBar({
+  onStarted,
+  suggestions = SUGGESTIONS,
+}: {
+  onStarted: (goalId: string) => void
+  suggestions?: readonly string[]
+}) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -296,7 +302,7 @@ export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void 
       </div>
 
       <div className="command__pills">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <button key={s} className="pill" onClick={() => setPrompt(s)} disabled={busy}>
             {s}
           </button>

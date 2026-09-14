@@ -110,13 +110,79 @@ test('the connector catalogue marks unconfigured providers as blocked', async ()
 })
 
 test('every data route refuses an unauthenticated caller', async () => {
-  for (const url of ['/connections', '/goals', '/approvals']) {
+  for (const url of ['/connections', '/goals', '/approvals', '/integrations']) {
     const res = await app.inject({ method: 'GET', url })
     assert.equal(res.statusCode, 401, `${url} must require a session`)
   }
 
   const post = await app.inject({ method: 'POST', url: '/goals', payload: { prompt: 'do a thing' } })
   assert.equal(post.statusCode, 401)
+})
+
+/**
+ * The integration catalogue is what the Tools screen renders, and everything
+ * on that screen is a claim about what the product will actually do. These
+ * pin the two claims that would be lies if they drifted.
+ */
+test('the integration catalogue reports permissions the runtime will honour', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const res = await app.inject({
+    method: 'GET',
+    url: '/integrations',
+    headers: { cookie: await cookieFor(userId, workspaceId) },
+  })
+  assert.equal(res.statusCode, 200)
+
+  const list = res.json() as {
+    id: string
+    status: string
+    connection: unknown
+    permissions: { toolId: string; kind: string }[]
+    agents: { agentKey: string; level: string }[]
+  }[]
+
+  const gmail = list.find((i) => i.id === 'gmail')
+  assert.ok(gmail, 'Gmail is in the catalogue')
+  assert.equal(gmail.status, 'available', 'Google is configured in this test env')
+
+  // Sending mail is irreversible and reaches a third party, so the screen must
+  // never show it as something an agent does quietly.
+  const send = gmail.permissions.find((p) => p.toolId === 'gmail.send')
+  assert.equal(send?.kind, 'approval', 'sending mail always asks the user first')
+
+  const search = gmail.permissions.find((p) => p.toolId === 'gmail.search')
+  assert.equal(search?.kind, 'read', 'searching the mailbox is autonomous')
+
+  assert.ok(gmail.agents.length > 0, 'the panel can name who uses this')
+})
+
+test('an integration with nothing built behind it never reports itself connected', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const { saveConnection } = await import('../tools/connections.js')
+
+  // One Google grant covers Gmail, Calendar and Drive. Only the first two are
+  // built, so Drive must not inherit the appearance of working.
+  await saveConnection(workspaceId, userId, 'google', {
+    accessToken: 'token',
+    refreshToken: null,
+    expiresAt: new Date(Date.now() + 3_600_000),
+    scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+    accountLabel: 'someone@example.com',
+  })
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/integrations',
+    headers: { cookie: await cookieFor(userId, workspaceId) },
+  })
+  const list = res.json() as { id: string; connection: unknown }[]
+
+  assert.ok(list.find((i) => i.id === 'gmail')?.connection, 'Gmail is genuinely connected')
+  assert.equal(
+    list.find((i) => i.id === 'google-drive')?.connection,
+    null,
+    'Drive is not built, so it cannot claim a sibling\'s connection',
+  )
 })
 
 test('a forged session cookie is refused', async () => {

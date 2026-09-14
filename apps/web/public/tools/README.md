@@ -2,8 +2,13 @@
 
 One file per integration, named for its id in the tool catalogue.
 
-Square, transparent background, at least 128x128. SVG is better than PNG here:
-these render at several sizes across the Tools grid and the agent detail panel.
+Square, transparent background, at least 128x128 (256 is safer - the detail
+panel draws them at 52px on a 2x screen).
+
+Until a file lands here the card shows a lettermark instead of a broken image,
+so the Tools screen is usable with none of these uploaded. The lettermark is
+the only thing that makes Gmail, Google Calendar and Google Drive look alike,
+which is the main reason to upload them.
 
 ## Needed
 

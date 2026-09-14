@@ -36,6 +36,13 @@ export default function HomePage() {
   // does not leave a subscription open on the server.
   useEffect(() => {
     socket.current = new WorldSocket()
+
+    // A goal can be started from Tools or History, which then navigates here.
+    // Reconnect to whatever is already in flight rather than showing an idle
+    // world while agents are running.
+    const existing = useWorld.getState().goalId
+    if (existing) socket.current.connect(existing)
+
     return () => {
       socket.current?.disconnect()
       socket.current = null
