@@ -53,24 +53,22 @@ the commit next to each build. It must be on `claude/keen-dirac-jjcw14`, at
 
 ## Part 2 — the API on Render
 
-Fifteen minutes, no credit card. Render is used here because it is the
-shortest path to a long-lived Node process with a Postgres beside it; Railway
-and Fly work the same way.
+Ten minutes of clicking in a browser. No credit card, no terminal.
 
-### Before you start
+**What "the backend" is here.** Two pieces: a **database** (Postgres, the same
+thing Supabase gives you) and a **server** that runs the agents. Supabase or
+Airtable alone would cover the database, but neither can run the second piece
+— calling Claude, working through a plan for several minutes, streaming
+progress to the island — so a plain database service is not enough on its own.
+Render gives you both at once, which is why `render.yaml` exists: it creates
+the server and the database together.
 
-Generate the encryption key. In your terminal:
+### What you need first
 
-```bash
-openssl rand -base64 32
-```
+Only one thing: your Anthropic API key. Get it in your browser at
+[console.anthropic.com](https://console.anthropic.com) → API Keys → Create Key.
 
-Copy the line it prints. It encrypts the Gmail and Slack tokens your agents
-use, so treat it like a password: paste it into Render only, never into the
-repository or a chat.
-
-You also need your Anthropic API key from
-[console.anthropic.com](https://console.anthropic.com) → API Keys.
+No terminal, at any point.
 
 ### Deploy
 
@@ -78,20 +76,20 @@ You also need your Anthropic API key from
 2. **New** → **Blueprint**.
 3. Pick **`Sam-UX-Designer/ai-agents-world`**, branch
    `claude/keen-dirac-jjcw14`.
-4. Render reads `render.yaml` and shows two services: `agents-world-api` and
-   `agents-world-db`. It then asks for three values:
+4. Render reads `render.yaml` and creates two things: the API server
+   (`agents-world-api`) and its Postgres database (`agents-world-db`). It
+   generates the security secrets itself and asks you for two values:
 
    | Field | What to paste |
    |---|---|
    | `ANTHROPIC_API_KEY` | Your Anthropic key |
-   | `TOKEN_ENCRYPTION_KEY` | The `openssl` line from above |
    | `APP_URL` | Your Vercel URL, e.g. `https://ai-agents-world.vercel.app` — https, no trailing slash |
 
-5. **Apply**. First build takes 3-5 minutes. It installs, compiles, and runs
-   the database migrations for you.
+5. **Apply**. The first build takes 3-5 minutes. It installs, compiles, and
+   creates the database tables for you.
 6. When it goes live, Render shows a URL like
-   `https://agents-world-api.onrender.com`. Open `<that URL>/health` — it
-   should answer `{"ok":true}`.
+   `https://agents-world-api.onrender.com`. Open `<that URL>/health` in your
+   browser — it should answer `{"ok":true}`.
 
 ### Point the web app at it
 
@@ -106,12 +104,15 @@ browser.
 
 You now have working sign-in, real agent runs, and saved history.
 
-### One thing to expect
+### Two things to expect
 
 Render's free instance sleeps after about 15 minutes idle, so the first
 request after a quiet spell takes ~30 seconds to wake it. Agent runs survive
 this - they are persisted, not held in memory - but it feels slow. Render's
 cheapest paid instance removes it.
+
+Claude usage is billed to your Anthropic account, per goal your agents run.
+Nothing else here costs anything on the free tiers.
 
 ---
 

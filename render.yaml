@@ -6,8 +6,9 @@
 # process (the API holds WebSockets open) and gives you a Postgres URL.
 #
 # Deploy: render.com -> New -> Blueprint -> pick this repository.
-# Render reads this file, creates both services, and asks you for the two
-# secrets marked `sync: false` below.
+# Render reads this file, creates both services, generates both secrets, and
+# asks you only for the two values it cannot know: your Anthropic key and the
+# web app's URL. No terminal at any point.
 
 databases:
   - name: agents-world-db
@@ -51,8 +52,7 @@ services:
       - key: SESSION_SECRET
         generateValue: true
 
-      # Encrypts integration tokens at rest. Must decode to exactly 32 bytes,
-      # so it cannot be auto-generated - run this and paste the result:
-      #   openssl rand -base64 32
+      # Encrypts integration tokens at rest. Render generates it; the API
+      # stretches whatever it is given into a full AES key.
       - key: TOKEN_ENCRYPTION_KEY
-        sync: false
+        generateValue: true

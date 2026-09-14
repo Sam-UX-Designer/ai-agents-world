@@ -1,6 +1,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  hkdfSync,
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto'
@@ -22,15 +23,55 @@ const ALGORITHM = 'aes-256-gcm'
 const IV_BYTES = 12 // 96 bits, the value GCM is specified for
 const KEY_BYTES = 32
 
-function keyFrom(base64Key: string): Buffer {
-  const key = Buffer.from(base64Key, 'base64')
-  if (key.length !== KEY_BYTES) {
+const MIN_SECRET_CHARS = 24
+const HKDF_INFO = 'agents-world:token-encryption:v1'
+
+const derived = new Map<string, Buffer>()
+
+/**
+ * Turn the configured secret into a 32-byte AES key.
+ *
+ * AES-256 needs exactly 32 bytes. Demanding that the operator supply exactly
+ * 32 bytes of base64 meant the only way to deploy was to open a terminal and
+ * run openssl - which rules out deploying from a browser, and invites the far
+ * worse workaround of pasting some short memorable string instead.
+ *
+ * So any sufficiently long secret is accepted and run through HKDF-SHA256.
+ * That is what HKDF is for: it spreads whatever entropy the input has across
+ * a full-length key without inventing any. A host's own "generate a random
+ * value" button now works, and so does a real `openssl rand -base64 32`,
+ * which still decodes to 32 bytes and is used directly.
+ *
+ * What HKDF cannot do is make a weak secret strong, so anything shorter than
+ * 24 characters is still refused.
+ */
+function keyFrom(secret: string): Buffer {
+  const cached = derived.get(secret)
+  if (cached) return cached
+
+  // A proper 32-byte base64 key is used unchanged, so any key generated the
+  // old way keeps decrypting what it already encrypted.
+  const decoded = Buffer.from(secret, 'base64')
+  const key = decoded.length === KEY_BYTES ? decoded : deriveKey(secret)
+
+  derived.set(secret, key)
+  return key
+}
+
+function deriveKey(secret: string): Buffer {
+  if (secret.length < MIN_SECRET_CHARS) {
     throw new Error(
-      `TOKEN_ENCRYPTION_KEY must decode to ${KEY_BYTES} bytes, got ${key.length}. ` +
-        'Generate one with: openssl rand -base64 32',
+      `TOKEN_ENCRYPTION_KEY must be at least ${MIN_SECRET_CHARS} characters, ` +
+        'or 32 bytes of base64. It encrypts your integration tokens, so a ' +
+        'short one is not safe.',
     )
   }
-  return key
+
+  // No salt: the key has to be reproducible from the environment alone, across
+  // restarts and across instances. The secret itself carries the entropy.
+  return Buffer.from(
+    hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), HKDF_INFO, KEY_BYTES),
+  )
 }
 
 /**
