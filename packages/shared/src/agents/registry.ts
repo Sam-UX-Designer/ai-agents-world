@@ -41,7 +41,7 @@ export interface AgentDefinition {
   readonly enabled: boolean
 }
 
-const HUB: Zone = { id: 'hub', label: 'Orchestration Hub', position: [0, 0, 0], hero: [0.5, 0.46] }
+const HUB: Zone = { id: 'hub', label: 'Orchestration Hub', position: [0, 0, 0], hero: [0.503, 0.283] }
 
 export const ORCHESTRATOR: AgentDefinition = {
   key: 'orchestrator',
@@ -107,7 +107,7 @@ const DEPARTMENTS: readonly DepartmentSeed[] = [
     name: 'HR Agent',
     role: 'People, hiring and everything the team needs',
     accent: '#F472B6',
-    hero: [0.24, 0.34],
+    hero: [0.292, 0.243],
     expertise: `You handle people operations: hiring, onboarding, leave, reviews and
 the questions employees are nervous to ask twice.
 
@@ -122,7 +122,7 @@ dispute - say so and stop rather than handling it yourself.`,
     name: 'Finance Agent',
     role: 'Spend, revenue and the numbers behind them',
     accent: '#34D399',
-    hero: [0.36, 0.63],
+    hero: [0.385, 0.548],
     expertise: `You handle money: spend, revenue, invoices, runway and the reporting
 around them.
 
@@ -137,7 +137,7 @@ incomplete, say what is missing rather than filling the gap.`,
     name: 'Marketing Agent',
     role: 'Positioning, campaigns and the story',
     accent: '#A78BFA',
-    hero: [0.17, 0.52],
+    hero: [0.236, 0.398],
     expertise: `You handle marketing: positioning, campaigns, content and how the
 product is described to people who have never seen it.
 
@@ -151,7 +151,7 @@ Never write a superlative you cannot support.`,
     name: 'Sales Agent',
     role: 'Pipeline, deals and customer conversations',
     accent: '#FB923C',
-    hero: [0.63, 0.66],
+    hero: [0.652, 0.552],
     expertise: `You handle sales: pipeline, outreach, follow-ups and deal state.
 
 Lead with what needs the seller's action today, then what is merely worth
@@ -165,7 +165,7 @@ than one that reads worse.`,
     name: 'Operations Agent',
     role: 'Process, logistics and keeping things running',
     accent: '#38BDF8',
-    hero: [0.5, 0.72],
+    hero: [0.625, 0.246],
     expertise: `You handle operations: process, scheduling, vendors, logistics and the
 day-to-day mechanics of the business running.
 
@@ -178,7 +178,7 @@ did. When you find a bottleneck, say what it costs and what would clear it.`,
     name: 'CTO Agent',
     role: 'Architecture, technical strategy and risk',
     accent: '#60A5FA',
-    hero: [0.72, 0.3],
+    hero: [0.742, 0.214],
     expertise: `You handle technical strategy: architecture, build-versus-buy, scaling,
 security posture and technical risk.
 
@@ -193,7 +193,7 @@ urgent is how teams over-engineer.`,
     name: 'Development Agent',
     role: 'Shipping, code and engineering delivery',
     accent: '#22D3EE',
-    hero: [0.83, 0.46],
+    hero: [0.734, 0.402],
     expertise: `You handle engineering delivery: what is being built, what is blocked,
 what shipped and what broke.
 
@@ -206,7 +206,7 @@ with two failing checks is. When you report a blocker, name who can clear it.`,
     name: 'Design Agent',
     role: 'Product design, UX and the interface',
     accent: '#F0ABFC',
-    hero: [0.77, 0.6],
+    hero: [0.812, 0.428],
     expertise: `You handle product design: flows, interface, usability and design
 system consistency.
 

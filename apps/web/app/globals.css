@@ -1,378 +1,657 @@
 @import "tailwindcss";
 
-/*
- * AI Agents World design language.
- *
- * Dark navy glass panels floating over a bright island. The world supplies the
- * colour; the UI stays quiet so it never competes with the thing it is
- * describing. Every surface is translucent for the same reason - the user
- * should always be able to see that work is still happening behind the panel
- * they are reading.
- */
+/* ===========================================================================
+   AI Agents World
+   ---------------------------------------------------------------------------
+   The island is the environment. Every surface here floats above it.
+
+   Two rules the whole sheet follows:
+
+   1. Nothing that holds UI reserves layout space. Panels are positioned over
+      the world and sized to their content, so the ocean reaches all four
+      edges and the artwork is never framed.
+
+   2. Glass is dark and genuinely translucent. It sits over bright, detailed
+      artwork, so the recipe is a dark tint plus blur plus a hairline rim -
+      not a light frost, which would disappear against the ocean.
+   =========================================================================== */
 
 @theme {
-  --color-ink-900: #060D18;
-  --color-ink-800: #0A1628;
-  --color-ink-700: #102037;
-  --color-ink-600: #17304C;
+  --color-ink-950: #04070D;
+  --color-ink-900: #070E1A;
+  --color-ink-800: #0B1726;
+  --color-ink-700: #122238;
 
-  --color-accent: #4DA3FF;
+  --color-accent: #3E9BFF;
   --color-accent-soft: #7FC0FF;
 
   --color-ok: #34D399;
   --color-warn: #FFB020;
-  --color-danger: #F87171;
+  --color-danger: #FB7185;
 
-  --color-text: #EAF2FF;
-  --color-text-dim: #9BB2CE;
+  --color-text: #F2F7FF;
+  /* 6.1:1 on the glass tint below - comfortably past the 4.5:1 floor for
+     body text, which matters because this sits over moving artwork. */
+  --color-text-dim: #A9BFDA;
 
-  --radius-panel: 18px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --edge: clamp(16px, 1.7vw, 26px);
 }
 
-:root {
-  color-scheme: dark;
-}
+:root { color-scheme: dark; }
 
-html,
-body {
+html, body {
   height: 100%;
   margin: 0;
-  background: var(--color-ink-900);
+  background: var(--color-ink-950);
   color: var(--color-text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* The world is a fixed environment; the page itself never scrolls. */
+  overflow: hidden;
 }
 
-/* ---------------------------------------------------------------- panels -- */
+/* ------------------------------------------------------------------ glass -- */
 
+/*
+ * One recipe, used by every floating surface.
+ *
+ * saturate() before blur is what keeps the ocean's colour alive through the
+ * panel instead of going grey - the single thing that most distinguishes real
+ * glass from a translucent black rectangle.
+ */
 .glass {
-  background: color-mix(in srgb, var(--color-ink-800) 82%, transparent);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 16%, transparent);
-  border-radius: var(--radius-panel);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 0.42);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-ink-800) 78%, transparent),
+    color-mix(in srgb, var(--color-ink-900) 84%, transparent)
+  );
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  /* Inset highlight along the top edge reads as light catching a real rim. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.10),
+    0 18px 50px rgb(0 0 0 / 0.45);
+  border-radius: var(--radius-lg);
 }
 
-/* ------------------------------------------------------- island labels -- */
+/* Where blur is unavailable, lean opaque. A see-through panel with no blur
+   over this artwork is unreadable, and legibility beats the effect. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: color-mix(in srgb, var(--color-ink-900) 94%, transparent);
+  }
+}
 
-.agent-label {
+/* ------------------------------------------------------------------ world -- */
+
+.world {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/*
+ * The island fills the viewport.
+ *
+ * No max-width, no aspect-ratio box, no border, no radius - those are what
+ * turn an environment back into a picture.
+ */
+.world__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  /* A touch of scale hides the hairline seam some browsers leave at the edge
+     of a cover-fitted image on fractional device pixel ratios. */
+  transform: scale(1.012);
+}
+
+/*
+ * Readability veil.
+ *
+ * Darkened at the corners and along the bottom, where the panels and command
+ * bar sit; the centre of the island keeps its full brightness because that is
+ * the part worth looking at.
+ */
+.world__veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 42%, transparent 38%, rgb(4 8 16 / 0.34) 100%),
+    linear-gradient(to bottom, rgb(4 8 16 / 0.46) 0%, transparent 20%, transparent 58%, rgb(4 8 16 / 0.62) 100%),
+    linear-gradient(to right, rgb(4 8 16 / 0.40) 0%, transparent 26%, transparent 74%, rgb(4 8 16 / 0.40) 100%);
+}
+
+.world__missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+  background: linear-gradient(165deg, #17527A 0%, #0B3350 55%, #061A2C 100%);
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+.world__missing code { color: var(--color-accent-soft); }
+
+/* ----------------------------------------------------------------- brand -- */
+
+.brand {
+  position: fixed;
+  top: var(--edge);
+  left: var(--edge);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brand__mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  box-shadow: 0 6px 18px rgb(20 90 190 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+
+.brand__text { display: flex; flex-direction: column; line-height: 1.28; }
+.brand__text strong {
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  /* The island behind the brand is bright sky; a shadow keeps it readable
+     without dropping a panel behind the words. */
+  text-shadow: 0 1px 12px rgb(4 8 16 / 0.75);
+}
+.brand__text em {
+  font-size: 11.5px;
+  font-style: normal;
+  color: var(--color-text-dim);
+  text-shadow: 0 1px 10px rgb(4 8 16 / 0.8);
+}
+
+/* ------------------------------------------------------------- side nav -- */
+
+.sidenav {
+  position: fixed;
+  left: var(--edge);
+  top: calc(var(--edge) + 62px);
+  z-index: 30;
+  width: 186px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sidenav__item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  /* 42px tall: past the 24pt desktop minimum with room for a comfortable
+     pointer target. */
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 520;
+  color: var(--color-text-dim);
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.sidenav__item:hover { background: rgb(255 255 255 / 0.055); color: var(--color-text); }
+
+.sidenav__item[data-active="true"] {
+  background: linear-gradient(140deg, var(--color-accent), #2472D8);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgb(20 90 190 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.sidenav__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 13px 4px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.sidenav__avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 12.5px; font-weight: 650;
+  background: rgb(255 255 255 / 0.10);
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.sidenav__who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.sidenav__who strong { font-size: 12.5px; font-weight: 600; }
+.sidenav__who em { font-size: 11px; font-style: normal; color: var(--color-accent-soft); }
+
+/* --------------------------------------------------------- top-right -- */
+
+.topright {
+  position: fixed;
+  top: var(--edge);
+  right: var(--edge);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.iconbtn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.iconbtn:hover { background: rgb(255 255 255 / 0.10); }
+
+.iconbtn--avatar {
+  font-size: 13px; font-weight: 650;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  cursor: default;
+}
+
+/* --------------------------------------------------------------- markers -- */
+
+.markers { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+
+/*
+ * An agent card on its station.
+ *
+ * Deliberately small and light: these sit on top of detailed artwork, and a
+ * card heavy enough to be a panel hides the thing it is pointing at.
+ */
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 7px 12px 7px 10px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--color-ink-900) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
-  backdrop-filter: blur(10px);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
   white-space: nowrap;
-  /* The label is a readout, not a control - it must never eat a click meant
-     for the robot underneath it. */
-  user-select: none;
-}
-
-.agent-label__text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-.agent-label__text strong {
-  font-size: 12px;
-  font-weight: 600;
   color: var(--color-text);
-}
-.agent-label__text em {
-  font-size: 10.5px;
-  font-style: normal;
-  color: var(--color-text-dim);
-}
-
-.agent-label__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-text-dim);
-  flex-shrink: 0;
+  background: color-mix(in srgb, var(--color-ink-950) 72%, transparent);
+  backdrop-filter: saturate(170%) blur(14px);
+  -webkit-backdrop-filter: saturate(170%) blur(14px);
+  border: 1px solid rgb(255 255 255 / 0.10);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 8px 22px rgb(0 0 0 / 0.42);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-/* State is carried by colour AND by the words in the label, never by colour
-   alone - the PRD requires the world to stay readable without it. */
-.agent-label[data-state="working"] .agent-label__dot,
-.agent-label[data-state="planning"] .agent-label__dot,
-.agent-label[data-state="spawning"] .agent-label__dot {
+/* Which side of the anchor the label extends from. The dot stays on the
+   station either way; only the card's direction changes. */
+.marker[data-side="left"]   { transform: translate(calc(-100% + 22px), -50%); }
+.marker[data-side="right"]  { transform: translate(-22px, -50%); }
+
+.marker:hover { transform: translate(-50%, -50%) scale(1.045); border-color: rgb(255 255 255 / 0.2); }
+.marker[data-side="left"]:hover  { transform: translate(calc(-100% + 22px), -50%) scale(1.045); }
+.marker[data-side="right"]:hover { transform: translate(-22px, -50%) scale(1.045); }
+.marker[aria-pressed="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-ink-950) 84%, transparent); }
+.marker[data-primary="true"] { padding: 9px 14px 9px 12px; }
+
+.marker__dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--dot, var(--color-text-dim));
+}
+.marker[data-state="working"] .marker__dot,
+.marker[data-state="planning"] .marker__dot,
+.marker[data-state="spawning"] .marker__dot { box-shadow: 0 0 10px var(--dot); }
+
+.marker__label { display: flex; flex-direction: column; line-height: 1.25; }
+.marker__label strong { font-size: 11.5px; font-weight: 620; letter-spacing: -0.005em; }
+.marker[data-primary="true"] .marker__label strong { font-size: 12.5px; }
+.marker__label em { font-size: 10px; font-style: normal; color: var(--color-text-dim); }
+
+.marker__pulse {
+  width: 5px; height: 5px; border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent);
-}
-.agent-label[data-state="needs_input"] .agent-label__dot {
-  background: var(--color-warn);
-  box-shadow: 0 0 10px var(--color-warn);
-}
-.agent-label[data-state="completed"] .agent-label__dot {
-  background: var(--color-ok);
-}
-.agent-label[data-state="error"] .agent-label__dot {
-  background: var(--color-danger);
-}
-
-.agent-label__pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.25; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.25); }
+  0%, 100% { opacity: .25; transform: scale(.75); }
+  50%      { opacity: 1;   transform: scale(1.3); }
 }
 
-/* ------------------------------------------------------------- progress -- */
+/* -------------------------------------------------------- agents panel -- */
 
-.progress {
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-ink-600) 70%, transparent);
+.agents {
+  position: fixed;
+  right: var(--edge);
+  top: calc(var(--edge) + 62px);
+  z-index: 30;
+  width: 272px;
+  max-height: calc(100dvh - 260px);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-.progress__fill {
-  height: 100%;
+.agents__head { margin-bottom: 11px; }
+.agents__head h2 { margin: 0; font-size: 13.5px; font-weight: 640; letter-spacing: -0.01em; }
+.agents__head p {
+  margin: 3px 0 0;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--color-ok);
+}
+.agents__live {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-ok); box-shadow: 0 0 8px var(--color-ok);
+}
+
+.agents__list { margin: 0; padding: 0; list-style: none; overflow-y: auto; display: grid; gap: 2px; }
+
+.agents__row {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  font-family: inherit; text-align: left; cursor: pointer;
+  color: var(--color-text);
+  transition: background 150ms ease;
+}
+.agents__row:hover,
+.agents__row[data-selected="true"] { background: rgb(255 255 255 / 0.06); }
+.agents__row svg { color: var(--color-text-dim); flex-shrink: 0; }
+
+.agents__icon {
+  width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+  display: grid; place-items: center;
+  font-size: 12.5px; font-weight: 650;
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.agents__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.agents__text strong { font-size: 12.5px; font-weight: 580; }
+.agents__text em {
+  font-size: 11px; font-style: normal; color: var(--color-text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ----------------------------------------------------------- task card -- */
+
+.taskcard {
+  position: fixed;
+  right: var(--edge);
+  bottom: var(--edge);
+  z-index: 30;
+  width: 262px;
+  padding: 12px 13px;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+
+.taskcard__icon {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center;
+  color: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.taskcard__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.taskcard__body strong { font-size: 12px; font-weight: 600; }
+.taskcard__body em { font-size: 11px; font-style: normal; color: var(--color-text-dim); }
+
+.taskcard__bar {
+  height: 4px; margin-top: 6px; border-radius: 999px; overflow: hidden;
+  background: rgb(255 255 255 / 0.10);
+}
+.taskcard__fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-ok));
+  transition: width 500ms cubic-bezier(.22,.61,.36,1);
+}
+.taskcard__pct { font-size: 11px; color: var(--color-text-dim); flex-shrink: 0; }
+
+/* --------------------------------------------------------- command bar -- */
+
+.command {
+  position: fixed;
+  left: 50%;
+  bottom: var(--edge);
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(760px, calc(100vw - 2 * var(--edge)));
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+
+.command__bar {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 9px 9px 15px;
+  border-radius: 26px;
+  /* A touch brighter than the other panels: this is the one thing on screen
+     the user is meant to reach for. */
+  border-color: rgb(255 255 255 / 0.14);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.13),
+    0 10px 40px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(62 155 255 / 0.12);
+}
+
+.command__spark { color: var(--color-accent-soft); display: grid; place-items: center; flex-shrink: 0; }
+
+.command__input {
+  flex: 1; min-width: 0;
+  min-height: 26px; max-height: 120px;
+  padding: 4px 0;
+  border: 0; outline: 0; resize: none; background: transparent;
+  font-family: inherit; font-size: 14.5px; line-height: 1.45;
+  color: var(--color-text);
+}
+.command__input::placeholder { color: var(--color-text-dim); }
+
+.command__send {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; cursor: pointer; color: #fff;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  box-shadow: 0 4px 14px rgb(20 90 190 / 0.45);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.command__send:hover:not(:disabled) { transform: scale(1.06); }
+.command__send:disabled { opacity: .4; cursor: not-allowed; }
+
+.command__pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+
+.pill {
+  padding: 7px 14px;
   border-radius: 999px;
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  color: var(--color-text); cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.pill:hover { border-color: rgb(255 255 255 / 0.2); }
+
+.command__error { margin: 0; font-size: 12.5px; color: var(--color-danger); }
+
+/* ------------------------------------------------------------- docked -- */
+
+.agent-dock, .world-dock {
+  position: fixed;
+  z-index: 40;
+  max-height: calc(100dvh - 200px);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+}
+.agent-dock { left: var(--edge); top: calc(var(--edge) + 62px); width: min(320px, calc(100vw - 2 * var(--edge))); }
+.world-dock { right: var(--edge); top: calc(var(--edge) + 62px); width: min(320px, calc(100vw - 2 * var(--edge))); display: grid; gap: 10px; }
+
+/* ------------------------------------------------------------ controls -- */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 17px;
+  border-radius: var(--radius-md);
+  font-family: inherit; font-size: 13.5px; font-weight: 590;
+  border: 1px solid transparent; cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn--primary {
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  color: #fff; border-color: rgb(255 255 255 / 0.16);
+}
+.btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+.btn--ghost {
+  background: rgb(255 255 255 / 0.07);
+  color: var(--color-text);
+  border-color: rgb(255 255 255 / 0.11);
+}
+.btn--ghost:hover:not(:disabled) { background: rgb(255 255 255 / 0.12); }
+
+.progress { height: 5px; border-radius: 999px; background: rgb(255 255 255 / 0.10); overflow: hidden; }
+.progress__fill {
+  height: 100%; border-radius: 999px;
   background: linear-gradient(90deg, var(--color-accent), var(--color-accent-soft));
   transition: width 400ms ease;
 }
-
-/*
- * An estimated bar is visibly striped, a measured one is solid.
- *
- * This is the visual half of the confidence flag the event protocol carries.
- * A progress bar that is interpolating must not look identical to one
- * reporting completed steps, or the product is quietly lying about how far
- * along it is.
- */
+/* An estimated bar is striped, a measured one solid - the visual half of the
+   confidence flag the event protocol carries. */
 .progress__fill[data-confidence="estimated"] {
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgb(255 255 255 / 0.22) 0 6px,
-    transparent 6px 12px
-  );
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / .22) 0 6px, transparent 6px 12px);
   animation: drift 1.1s linear infinite;
 }
+@keyframes drift { to { background-position: 24px 0; } }
 
-@keyframes drift {
-  to { background-position: 24px 0; }
+.agent-label__pulse {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--color-accent);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .agent-label__pulse,
-  .progress__fill[data-confidence="estimated"] {
-    animation: none;
-  }
-  .progress__fill { transition: none; }
-}
-
-/* --------------------------------------------------------------- buttons -- */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 11px 18px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background 150ms, border-color 150ms, opacity 150ms;
-}
-
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.btn--primary { background: var(--color-accent); color: var(--color-ink-900); }
-.btn--primary:hover:not(:disabled) { background: var(--color-accent-soft); }
-
-.btn--ghost {
-  background: color-mix(in srgb, var(--color-ink-600) 55%, transparent);
-  color: var(--color-text);
-  border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
-}
-.btn--ghost:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-}
-
-.btn--danger { background: transparent; color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 40%, transparent); }
-
-/* Visible focus everywhere. Keyboard users need to see where they are. */
-:where(button, a, input, textarea, [tabindex]):focus-visible {
+:where(a, button, input, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* ---------------------------------------------------------- hero markers -- */
-
-.hero-marker {
-  font-family: inherit;
-  color: var(--color-text);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
 
-.hero-marker:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent) !important;
-}
+/* --------------------------------------------------------- responsive -- */
 
 /*
- * Below tablet width the markers come off the artwork entirely.
- *
- * Nine labels over a 16:9 image at phone width overlap into an unreadable
- * pile, and shrinking them just makes nine unreadable labels. The agent list
- * below the island carries the same information in a form that fits.
+ * Below tablet width the island stays full-screen, but the panels stop being
+ * panels: nine markers over a phone-width island overlap into noise, and a
+ * 272px sidebar on a 390px screen is a sidebar covering the world.
  */
 @media (max-width: 900px) {
-  .hero-marker {
-    display: none !important;
-  }
-}
-
-.agent-strip {
-  display: none;
-}
-
-@media (max-width: 900px) {
-  .agent-strip {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 12px clamp(16px, 4vw, 40px) 0;
-    /* Momentum scrolling with snap, so a swipe lands on an agent rather than
-       drifting between two. */
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .agent-strip::-webkit-scrollbar { display: none; }
-}
-
-.agent-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  scroll-snap-align: start;
-  padding: 9px 13px;
-  border-radius: 11px;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--color-text);
-  cursor: pointer;
-  background: color-mix(in srgb, var(--color-ink-800) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
-}
-
-.agent-chip[aria-pressed="true"] {
-  border-color: var(--color-accent);
-}
-
-@media (max-width: 900px) {
-  /* A 16:9 island at phone width is a thin band with acres of dead space above
-     and below it. Giving it a squarer crop uses the screen the device has. */
-  .hero-stage {
-    aspect-ratio: 4 / 3 !important;
-    max-width: 100% !important;
-  }
-}
-
-/* ----------------------------------------------------------- prompt row -- */
-
-.prompt-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-@media (max-width: 560px) {
   /*
-   * Stack at phone width.
+   * Phone layout.
    *
-   * Sharing one row with the mic and Send leaves the field about 180px wide,
-   * which wraps the placeholder onto a second line and clips it. The field
-   * gets the full width and the controls sit under it.
+   * The island stays full-screen; the panels stop being panels. Nine markers
+   * over a phone-width island overlap into noise, and a 272px sidebar on a
+   * 390px screen is a sidebar covering the world.
+   *
+   * The bottom stack is built from one set of measured heights rather than
+   * hand-tuned offsets per element - the previous version used independent
+   * magic numbers, which is exactly how the nav ended up on top of the
+   * command bar.
    */
-  /* !important because the textarea carries an inline `flex: 1`, and an
-     inline style beats a stylesheet rule regardless of specificity. */
-  .prompt-row {
-    flex-wrap: wrap;
+  /* Custom properties need a selector - declaring them bare inside a media
+     query is invalid and silently drops everything after it. */
+  :root {
+    --nav-h: 58px;
+    --cmd-h: 100px;
+    --gap: 10px;
   }
-  .prompt-row > textarea {
-    flex: 1 0 100% !important;
-  }
-  .prompt-row > button:last-child {
-    flex: 1;
-  }
-}
 
-/*
- * On a phone the hero is a stack, not a full-height layout.
- *
- * Holding 100dvh with content that only needs 70% of it leaves a band of dead
- * space under the prompt. Letting the content set the height puts the island,
- * the agents and the input in one comfortable column.
- */
-@media (max-width: 900px) {
-  .hero-section {
-    min-height: auto !important;
-    justify-content: flex-start;
-  }
-  .hero-stage-wrap {
-    flex: 0 1 auto !important;
-    padding-top: 8px !important;
-  }
-}
+  .markers { display: none; }
+  .sidenav__user { display: none; }
+  .brand__text em { display: none; }
+  .brand__text strong { font-size: 15px; }
 
-/* ------------------------------------------------------------- world dock -- */
-
-/*
- * Where progress and results live.
- *
- * Right side on desktop, matching the design board, with agent detail on the
- * left. The two panels are the only large surfaces over the island, and
- * putting them on the same edge means one always covers the other - or covers
- * the agent markers the user is trying to read.
- *
- * On a phone it becomes a block in the flow instead: a 400px panel pinned to
- * one side of a 400px screen is a panel covering the world it describes.
- */
-.world-dock {
-  position: fixed;
-  right: 16px;
-  top: 92px;
-  z-index: 40;
-  width: min(380px, calc(100vw - 32px));
-  max-height: calc(100dvh - 220px);
-  overflow-y: auto;
-  display: grid;
-  gap: 12px;
-  /* Rounded scroll container; the panels inside supply their own surface. */
-  border-radius: var(--radius-panel);
-}
-
-.agent-dock {
-  position: fixed;
-  left: 16px;
-  top: 92px;
-  z-index: 41;
-  width: min(340px, calc(100vw - 32px));
-  max-height: calc(100dvh - 220px);
-  overflow-y: auto;
-  border-radius: var(--radius-panel);
-}
-
-@media (max-width: 900px) {
-  .world-dock,
-  .agent-dock {
-    position: static;
+  /* Primary navigation belongs at the bottom on a phone. */
+  .sidenav {
+    top: auto;
+    bottom: max(var(--edge), env(safe-area-inset-bottom));
+    left: var(--edge);
+    right: var(--edge);
     width: auto;
-    max-height: none;
-    margin: 0 clamp(16px, 4vw, 40px) 16px;
+    height: var(--nav-h);
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    padding: 5px;
+    border-radius: 18px;
+  }
+  .sidenav__item {
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 4px;
+    font-size: 10.5px;
+    border-radius: 13px;
+  }
+
+  .command {
+    bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + var(--nav-h) + var(--gap));
+    width: calc(100vw - 2 * var(--edge));
+    gap: 8px;
+  }
+  .command__bar { padding: 7px 7px 7px 13px; }
+  .command__input { font-size: 16px; } /* 16px stops iOS zooming the page on focus */
+
+  /* One scrollable row instead of three wrapped ones, which ate a third of
+     the screen and pushed the island out of view. */
+  .command__pills {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .command__pills::-webkit-scrollbar { display: none; }
+  .pill { flex-shrink: 0; }
+
+  .agents,
+  .agent-dock,
+  .world-dock {
+    left: var(--edge);
+    right: var(--edge);
+    width: auto;
+    top: calc(var(--edge) + 56px);
+    bottom: auto;
+    max-height: calc(100dvh - var(--nav-h) - var(--cmd-h) - 130px);
+  }
+
+  .taskcard {
+    left: var(--edge);
+    right: var(--edge);
+    width: auto;
+    bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + var(--nav-h) + var(--cmd-h) + 2 * var(--gap));
   }
 }
