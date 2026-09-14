@@ -1,0 +1,27 @@
+{
+  "name": "@agents-world/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@agents-world/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^0.115.0",
+    "drizzle-orm": "^0.44.7",
+    "fastify": "^5.6.2",
+    "postgres": "^3.4.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "drizzle-kit": "^0.31.6",
+    "tsx": "^4.23.1",
+    "typescript": "~5.9.3"
+  }
+}
