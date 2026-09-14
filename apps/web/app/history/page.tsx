@@ -20,7 +20,7 @@ export default function HistoryPage() {
   return (
     <main>
       <div className="world" aria-hidden="true">
-        <img className="world__art" src="/world/island-hero.png" alt="" />
+        <img className="world__art" src="/world/history-bg.png" alt="" />
         <div className="world__veil" />
       </div>
 

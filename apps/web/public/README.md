@@ -20,9 +20,9 @@ silently broken.
 
 ## Current state
 
-No artwork is in the repository yet. Every surface shows a labelled placeholder
-naming the path it expects. Start with `world/island-hero.png` - that one is
-the Home background and the most visible gap.
+All three backgrounds are uploaded and in use. Still needed: integration logos
+in `tools/`, agent portraits in `agents/`, and mascot renders in `mascots/` -
+each folder's README lists the exact files.
 
 ## Guidance for every image
 
