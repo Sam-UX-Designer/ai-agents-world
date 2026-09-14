@@ -7,7 +7,8 @@ tasks, hands them to specialist agents, runs what it can in parallel, and
 assembles one answer. You watch the whole thing happen on a living 3D island,
 and you can click any agent to see exactly what it is doing.
 
-> **Status:** Phase 1, in development. Not yet runnable end to end.
+> **Status:** Phase 1. Runs end to end on a laptop with `pnpm dev` — no API
+> keys, no database to install.
 
 ---
 
@@ -45,21 +46,53 @@ read one definition and cannot drift apart.
 
 ## Getting started
 
-Requires Node 22+ and pnpm 10+.
+Requires Node 22+ and pnpm 10+. Nothing else — no Postgres to install, no
+API keys, no accounts.
 
 ```bash
 pnpm install
-pnpm build
-pnpm typecheck
+pnpm dev
 ```
 
-To run the API you will also need Postgres and a `.env` —
-see `apps/api/.env.example`.
+Then open the link it prints:
+
+```
+http://localhost:3000/api/demo/login
+```
+
+That signs you in and lands you on the island. Ctrl+C stops both servers.
+
+### What is real and what is not
+
+`pnpm dev` runs the actual product, not a mock of it.
+
+| Real | Faked |
+|---|---|
+| The API, every route, the permission gate | **Claude**, because it needs a paid API key |
+| Postgres — compiled to WebAssembly, running in-process | **Google and Slack tokens**, because those need OAuth apps |
+| Sessions, the WebSocket, live agent events | |
+| Every screen: Home, Tools, History | |
+
+So the agents answer from a scripted plan rather than from Claude, with
+realistic pauses, and the island shows genuine parallel work driven by real
+database state and real events. Everything you click is the production path.
+
+### Running it for real
+
+Two things turn the faked column into the real one, and neither belongs in
+this repository:
 
 ```bash
 cp apps/api/.env.example apps/api/.env   # then fill it in
-pnpm dev:api
+pnpm dev:api                             # real Postgres, real Claude
 ```
+
+- `ANTHROPIC_API_KEY` — agents start thinking for themselves.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `SLACK_CLIENT_ID` /
+  `SLACK_CLIENT_SECRET` — the Connect buttons on Tools complete real OAuth.
+
+**Keys go in `.env` or in your host's environment settings. Never in the
+source code** — `.env` is gitignored for exactly this reason.
 
 ## Reading the code
 

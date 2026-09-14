@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "description": "AI Agents World - a multi-agent orchestration workspace you can watch work in a living 3D world.",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "dev:api": "pnpm --filter @agents-world/api dev",

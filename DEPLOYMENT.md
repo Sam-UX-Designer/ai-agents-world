@@ -11,24 +11,55 @@ different runtime needs, not as a preference.
 
 ## Vercel
 
-**Root Directory: leave it as the repository root.** `vercel.json` at the root
-already describes the monorepo, so nothing needs configuring in the dashboard.
+Vercel hosts `apps/web` only.
 
-If you prefer to set Root Directory to `apps/web`, that also works - Vercel then
-reads `apps/web/package.json`, whose `build` script builds the shared package
-first on its own.
+**Set Root Directory to `apps/web`** in Project → Settings → Build and
+Deployment. `apps/web/vercel.json` handles everything else, including the
+output directory, and a `vercel.json` overrides whatever the dashboard says -
+so there is nothing else to configure.
 
-### Why the build was failing
+### The "output directory was not found" failure
+
+```
+Error: The Next.js output directory "apps/web/.next" was not found at
+"/vercel/path0/apps/web/apps/web/.next"
+```
+
+Read the path: `apps/web` appears twice. Root Directory was already `apps/web`,
+and the Output Directory setting said `apps/web/.next` on top of it, so Vercel
+looked one folder too deep.
+
+Note what this failure is *not*. The build itself succeeded - the log shows
+`Compiled successfully`, nine pages generated and the full route table. Only
+the step that collects the finished output looked in the wrong place. Nothing
+was wrong with Next.js, and changing framework would not have helped.
+
+The fix is in the repository now: `apps/web/vercel.json` sets
+`"outputDirectory": ".next"`, relative to the root directory, which is correct
+in both layouts. If a stale **Output Directory** override is still set in
+Project → Settings → Build and Deployment, clear it.
+
+### Why the earlier build was failing
 
 `apps/web` imports `@agents-world/shared`, a workspace package whose
-`package.json` points at `./dist/index.js`. `dist/` is gitignored, so on a fresh
-clone it does not exist. Running `next build` alone gave:
+`package.json` points at `./dist/index.js`. `dist/` is gitignored, so on a
+fresh clone it does not exist. Running `next build` alone gave:
 
 ```
 Module not found: Can't resolve '@agents-world/shared'
 ```
 
-Both fixes above build the shared package before Next.js compiles.
+`apps/web/package.json`'s own `build` script builds the shared package first,
+which is what Vercel runs, so this is handled.
+
+### The API does not go on Vercel
+
+`apps/api` holds WebSockets open and runs agents for minutes at a time.
+Vercel's functions do neither. Deploy it to Railway, Render or Fly, then point
+the web app at it with the `API_URL` variable below.
+
+Until you do, the deployed site will load but every screen will be empty - the
+browser is calling an API that is not there yet. That is expected, not a bug.
 
 ### Environment variables
 

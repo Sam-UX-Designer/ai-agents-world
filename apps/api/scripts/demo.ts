@@ -122,7 +122,32 @@ const stub = {
 } as unknown as Anthropic
 
 const app = await buildApp(stub, new EventBus(new PostgresEventStore()))
-await app.listen({ port: 4000, host: '0.0.0.0' })
+
+/**
+ * Demo sign-in.
+ *
+ * Google OAuth needs credentials and a registered redirect URI, neither of
+ * which exist on a laptop. This hands the browser the same session cookie the
+ * real callback would set - same name, same flags, same session table - so
+ * everything downstream is the production path. Opening one URL replaces
+ * pasting a cookie into devtools by hand.
+ *
+ * It exists only in this script. The server built by `pnpm dev` has no such
+ * route.
+ */
+app.get('/demo/login', async (_request, reply) =>
+  reply
+    .setCookie(SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      path: '/',
+      expires: new Date(Date.now() + 7 * 86_400_000),
+    })
+    .redirect(`${process.env.APP_URL}/world`),
+)
+
+await app.listen({ port: Number(process.env.PORT), host: '0.0.0.0' })
 
 console.log('DEMO_READY')
 console.log(`COOKIE=${SESSION_COOKIE}=${token}`)
