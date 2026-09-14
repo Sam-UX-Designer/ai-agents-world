@@ -14,7 +14,7 @@ export interface AgentInfo {
   name: string
   role: string
   instructions: string
-  zone: { id: string; label: string; position: [number, number, number]; hero: [number, number] }
+  zone: { id: string; label: string; position: [number, number, number]; station: [number, number] }
   accent: string
   enabled: boolean
   tools: { id: string; label: string; effect: string }[]

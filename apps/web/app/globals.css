@@ -186,63 +186,83 @@ html, body {
 
 /* ------------------------------------------------------------- side nav -- */
 
+/*
+ * Navigation floats directly over the world.
+ *
+ * No enclosing card: HIG reserves Liquid Glass for the functional layer, and
+ * one large pane behind four items turns floating navigation back into a
+ * sidebar. Each item carries its own glass instead, so the island shows
+ * through between them.
+ */
 .sidenav {
   position: fixed;
   left: var(--edge);
-  top: calc(var(--edge) + 62px);
+  top: calc(var(--edge) + 64px);
   z-index: 30;
-  width: 186px;
-  padding: 10px;
+  width: 176px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .sidenav__item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  /* 42px tall: past the 24pt desktop minimum with room for a comfortable
-     pointer target. */
-  padding: 11px 13px;
+  gap: 12px;
+  padding: 11px 15px;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 520;
-  color: var(--color-text-dim);
+  color: var(--color-text);
   text-decoration: none;
-  transition: background 160ms ease, color 160ms ease;
+  text-shadow: 0 1px 10px rgb(4 8 16 / 0.7);
+  transition: background 160ms ease;
 }
 
-.sidenav__item:hover { background: rgb(255 255 255 / 0.055); color: var(--color-text); }
+.sidenav__item:hover {
+  background: rgb(255 255 255 / 0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
 
+/* The active item is the one solid surface in the column. */
 .sidenav__item[data-active="true"] {
   background: linear-gradient(140deg, var(--color-accent), #2472D8);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 6px 18px rgb(20 90 190 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.22);
+  text-shadow: none;
+  box-shadow: 0 6px 20px rgb(20 90 190 / 0.48), inset 0 1px 0 rgb(255 255 255 / 0.24);
 }
 
-.sidenav__user {
+/* --------------------------------------------------------- profile -- */
+
+.profile {
+  position: fixed;
+  left: var(--edge);
+  top: calc(var(--edge) + 250px);
+  z-index: 30;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 11px 13px 4px;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
+  gap: 11px;
+  padding-top: 18px;
+  width: 176px;
+  border-top: 1px solid rgb(255 255 255 / 0.14);
 }
 
-.sidenav__avatar {
-  width: 30px; height: 30px;
+.profile__avatar {
+  width: 34px; height: 34px;
   border-radius: 50%;
   display: grid; place-items: center;
-  font-size: 12.5px; font-weight: 650;
-  background: rgb(255 255 255 / 0.10);
-  border: 1px solid rgb(255 255 255 / 0.12);
+  font-size: 13px; font-weight: 650;
+  background: rgb(255 255 255 / 0.13);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
-.sidenav__who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
-.sidenav__who strong { font-size: 12.5px; font-weight: 600; }
-.sidenav__who em { font-size: 11px; font-style: normal; color: var(--color-accent-soft); }
+.profile__who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.profile__who strong { font-size: 13px; font-weight: 600; text-shadow: 0 1px 10px rgb(4 8 16 / 0.75); }
+.profile__who em { font-size: 11.5px; font-style: normal; color: var(--color-accent-soft); text-shadow: 0 1px 10px rgb(4 8 16 / 0.75); }
 
 /* --------------------------------------------------------- top-right -- */
 
@@ -278,60 +298,104 @@ html, body {
 .markers { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 
 /*
- * An agent card on its station.
+ * A station is one anchor pinned to a robot's real position in the artwork.
  *
- * Deliberately small and light: these sit on top of detailed artwork, and a
- * card heavy enough to be a panel hides the thing it is pointing at.
+ * The anchor itself is a zero-size point on the station. The mascot slot sits
+ * on it and the card floats above it, so nothing about the card's size or
+ * direction can move where the agent is understood to be - and the mascot
+ * drops in later without touching the positioning.
+ */
+.station {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* Reserved for the supplied mascot render. Sized to a robot in the artwork. */
+.station__mascot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  pointer-events: none;
+  /* A soft ground-glow, not a shape: until the mascot exists this reads as
+     the station being lit rather than as a placeholder box on the artwork. */
+  background: radial-gradient(circle, rgb(90 180 255 / 0.30) 0%, transparent 68%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.station__mascot[data-state="working"],
+.station__mascot[data-state="planning"],
+.station__mascot[data-state="spawning"] {
+  opacity: 1;
+  animation: stationPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes stationPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);    opacity: .55; }
+  50%      { transform: translate(-50%, -50%) scale(1.35); opacity: 1; }
+}
+
+/*
+ * The card, floating above its station.
+ *
+ * Small and light on purpose: these sit on detailed artwork, and a card heavy
+ * enough to be a panel hides the robot it is labelling.
  */
 .marker {
   position: absolute;
-  transform: translate(-50%, -50%);
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 12px 7px 10px;
+  gap: 9px;
+  padding: 6px 12px 6px 6px;
   border-radius: 12px;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
   color: var(--color-text);
-  background: color-mix(in srgb, var(--color-ink-950) 72%, transparent);
-  backdrop-filter: saturate(170%) blur(14px);
-  -webkit-backdrop-filter: saturate(170%) blur(14px);
-  border: 1px solid rgb(255 255 255 / 0.10);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 8px 22px rgb(0 0 0 / 0.42);
+  /* Clear variant over bright media, with the dimming the HIG asks for. */
+  background: color-mix(in srgb, var(--color-ink-950) 68%, transparent);
+  backdrop-filter: saturate(170%) blur(16px);
+  -webkit-backdrop-filter: saturate(170%) blur(16px);
+  border: 1px solid rgb(255 255 255 / 0.11);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 8px 24px rgb(0 0 0 / 0.45);
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-/* Which side of the anchor the label extends from. The dot stays on the
-   station either way; only the card's direction changes. */
-.marker[data-side="left"]   { transform: translate(calc(-100% + 22px), -50%); }
-.marker[data-side="right"]  { transform: translate(-22px, -50%); }
+/* Cards near an edge extend inward. The anchor never moves - only the
+   direction the card grows from it. */
+.station[data-side="left"]  .marker { left: auto; right: 8px; transform: none; }
+.station[data-side="right"] .marker { left: 8px; transform: none; }
 
-.marker:hover { transform: translate(-50%, -50%) scale(1.045); border-color: rgb(255 255 255 / 0.2); }
-.marker[data-side="left"]:hover  { transform: translate(calc(-100% + 22px), -50%) scale(1.045); }
-.marker[data-side="right"]:hover { transform: translate(-22px, -50%) scale(1.045); }
-.marker[aria-pressed="true"] { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-ink-950) 84%, transparent); }
-.marker[data-primary="true"] { padding: 9px 14px 9px 12px; }
+.marker:hover { border-color: rgb(255 255 255 / 0.24); background: color-mix(in srgb, var(--color-ink-950) 78%, transparent); }
+.marker[aria-pressed="true"] { border-color: var(--color-accent); }
+.marker[data-primary="true"] { bottom: 40px; }
 
-.marker__dot {
-  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-  background: var(--dot, var(--color-text-dim));
+.marker__icon {
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 650; color: #fff;
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
 }
-.marker[data-state="working"] .marker__dot,
-.marker[data-state="planning"] .marker__dot,
-.marker[data-state="spawning"] .marker__dot { box-shadow: 0 0 10px var(--dot); }
 
-.marker__label { display: flex; flex-direction: column; line-height: 1.25; }
+.marker__label { display: flex; flex-direction: column; line-height: 1.26; }
 .marker__label strong { font-size: 11.5px; font-weight: 620; letter-spacing: -0.005em; }
 .marker[data-primary="true"] .marker__label strong { font-size: 12.5px; }
 .marker__label em { font-size: 10px; font-style: normal; color: var(--color-text-dim); }
 
 .marker__pulse {
-  width: 5px; height: 5px; border-radius: 50%;
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
   background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -434,65 +498,86 @@ html, body {
 
 /* --------------------------------------------------------- command bar -- */
 
+/*
+ * One glass container for the whole input component.
+ *
+ * The input row and the suggestion pills live inside it. Previously the pills
+ * were separate glass chips floating under a separate glass bar, which read as
+ * two unrelated things; this reads as one control.
+ */
 .command {
   position: fixed;
   left: 50%;
   bottom: var(--edge);
   transform: translateX(-50%);
   z-index: 30;
-  width: min(760px, calc(100vw - 2 * var(--edge)));
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  width: min(800px, calc(100vw - 2 * var(--edge)));
+  padding: 12px;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  /* Slightly brighter rim than the other panels: this is the one thing on
+     screen the user is meant to reach for. */
+  border-color: rgb(255 255 255 / 0.15);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 16px 50px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(62 155 255 / 0.14);
 }
 
-.command__bar {
-  width: 100%;
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 9px 9px 15px;
-  border-radius: 26px;
-  /* A touch brighter than the other panels: this is the one thing on screen
-     the user is meant to reach for. */
-  border-color: rgb(255 255 255 / 0.14);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.13),
-    0 10px 40px rgb(0 0 0 / 0.5),
-    0 0 0 1px rgb(62 155 255 / 0.12);
+.command__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-left: 6px;
 }
 
 .command__spark { color: var(--color-accent-soft); display: grid; place-items: center; flex-shrink: 0; }
 
 .command__input {
   flex: 1; min-width: 0;
-  min-height: 26px; max-height: 120px;
-  padding: 4px 0;
+  min-height: 28px; max-height: 120px;
+  padding: 5px 0;
   border: 0; outline: 0; resize: none; background: transparent;
-  font-family: inherit; font-size: 14.5px; line-height: 1.45;
+  font-family: inherit; font-size: 15px; line-height: 1.45;
   color: var(--color-text);
 }
 .command__input::placeholder { color: var(--color-text-dim); }
 
 .command__send {
-  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; cursor: pointer; color: #fff;
-  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
-  border: 1px solid rgb(255 255 255 / 0.18);
-  box-shadow: 0 4px 14px rgb(20 90 190 / 0.45);
+  background: linear-gradient(150deg, #4FA6FF, #1E6FD8);
+  border: 1px solid rgb(255 255 255 / 0.2);
+  box-shadow: 0 4px 16px rgb(20 90 190 / 0.5);
   transition: opacity 150ms ease, transform 150ms ease;
 }
 .command__send:hover:not(:disabled) { transform: scale(1.06); }
 .command__send:disabled { opacity: .4; cursor: not-allowed; }
 
-.command__pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+/* Pills sit inside the same container, so they are plain surfaces rather than
+   their own glass - nesting glass inside glass muddies both. */
+.command__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-left: 6px;
+}
 
 .pill {
   padding: 7px 14px;
   border-radius: 999px;
   font-family: inherit; font-size: 12px; font-weight: 500;
   color: var(--color-text); cursor: pointer;
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.10);
   transition: background 150ms ease, border-color 150ms ease;
 }
-.pill:hover { border-color: rgb(255 255 255 / 0.2); }
+.pill:hover { background: rgb(255 255 255 / 0.13); border-color: rgb(255 255 255 / 0.2); }
+.pill:disabled { opacity: .5; cursor: not-allowed; }
 
-.command__error { margin: 0; font-size: 12.5px; color: var(--color-danger); }
+.command__error { margin: 0 0 0 6px; font-size: 12.5px; color: var(--color-danger); }
 
 /* ------------------------------------------------------------- docked -- */
 
@@ -589,12 +674,22 @@ html, body {
   }
 
   .markers { display: none; }
-  .sidenav__user { display: none; }
+  .profile { display: none; }
   .brand__text em { display: none; }
   .brand__text strong { font-size: 15px; }
 
   /* Primary navigation belongs at the bottom on a phone. */
   .sidenav {
+    /* On a phone the nav becomes a bottom tab bar, and there it does get a
+       shared surface - a tab bar is a single control, not four floating
+       links. */
+    background: linear-gradient(160deg,
+      color-mix(in srgb, var(--color-ink-800) 78%, transparent),
+      color-mix(in srgb, var(--color-ink-900) 84%, transparent));
+    backdrop-filter: saturate(180%) blur(22px);
+    -webkit-backdrop-filter: saturate(180%) blur(22px);
+    border: 1px solid rgb(255 255 255 / 0.09);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.10), 0 18px 50px rgb(0 0 0 / 0.45);
     top: auto;
     bottom: max(var(--edge), env(safe-area-inset-bottom));
     left: var(--edge);
@@ -619,9 +714,9 @@ html, body {
   .command {
     bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + var(--nav-h) + var(--gap));
     width: calc(100vw - 2 * var(--edge));
-    gap: 8px;
+    gap: 9px;
   }
-  .command__bar { padding: 7px 7px 7px 13px; }
+  .command { padding: 10px; border-radius: 22px; }
   .command__input { font-size: 16px; } /* 16px stops iOS zooming the page on focus */
 
   /* One scrollable row instead of three wrapped ones, which ate a third of

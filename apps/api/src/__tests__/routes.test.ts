@@ -69,7 +69,7 @@ test('the agent roster is served for the island', async () => {
 
   const agents = res.json() as {
     key: string
-    zone: { position: number[]; hero: number[] }
+    zone: { position: number[]; station: number[] }
     tools: { id: string }[]
   }[]
 
@@ -87,10 +87,10 @@ test('the agent roster is served for the island', async () => {
   const senders = agents.filter((a) => a.tools.some((t) => t.id === 'gmail.send'))
   assert.ok(senders.length > 1, 'gmail.send is shared across departments, not owned by one agent')
 
-  // Every agent needs a hero coordinate so its label can sit on the artwork.
+  // Every agent is anchored to a workstation in the artwork.
   assert.ok(
-    agents.every((a) => a.zone.hero.length === 2),
-    'every agent has a position on the hero image',
+    agents.every((a) => a.zone.station.length === 2),
+    'every agent is anchored to a workstation in the artwork',
   )
 })
 

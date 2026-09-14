@@ -18,9 +18,19 @@ export interface Zone {
   readonly label: string
   /** World-space metres from the island centre, where the hub sits. */
   readonly position: readonly [x: number, y: number, z: number]
-  /** Fraction of the hero image's width and height, for placing the label
-   *  over the background asset. 0,0 is top-left. */
-  readonly hero: readonly [x: number, y: number]
+  /**
+   * The agent's workstation in the island artwork, as a fraction of the
+   * image's width and height. 0,0 is top-left.
+   *
+   * This is the robot's actual position, measured from the supplied render -
+   * not a convenient gap in the composition. The card floats above it and the
+   * mascot will sit exactly on it, so when artwork arrives it drops in without
+   * the positioning being touched.
+   *
+   * Normalised rather than pixel-based because the island is cover-fitted to
+   * the viewport: pixels would drift the moment the window changed shape.
+   */
+  readonly station: readonly [x: number, y: number]
 }
 
 export interface AgentDefinition {
@@ -41,7 +51,7 @@ export interface AgentDefinition {
   readonly enabled: boolean
 }
 
-const HUB: Zone = { id: 'hub', label: 'Orchestration Hub', position: [0, 0, 0], hero: [0.503, 0.283] }
+const HUB: Zone = { id: 'hub', label: 'Orchestration Hub', position: [0, 0, 0], station: [0.502, 0.332] }
 
 export const ORCHESTRATOR: AgentDefinition = {
   key: 'orchestrator',
@@ -96,7 +106,7 @@ interface DepartmentSeed {
   name: string
   role: string
   accent: string
-  hero: readonly [number, number]
+  station: readonly [number, number]
   expertise: string
   toolIds: readonly string[]
 }
@@ -107,7 +117,7 @@ const DEPARTMENTS: readonly DepartmentSeed[] = [
     name: 'HR Agent',
     role: 'People, hiring and everything the team needs',
     accent: '#F472B6',
-    hero: [0.292, 0.243],
+    station: [0.31, 0.299],
     expertise: `You handle people operations: hiring, onboarding, leave, reviews and
 the questions employees are nervous to ask twice.
 
@@ -122,7 +132,7 @@ dispute - say so and stop rather than handling it yourself.`,
     name: 'Finance Agent',
     role: 'Spend, revenue and the numbers behind them',
     accent: '#34D399',
-    hero: [0.385, 0.548],
+    station: [0.379, 0.619],
     expertise: `You handle money: spend, revenue, invoices, runway and the reporting
 around them.
 
@@ -137,7 +147,7 @@ incomplete, say what is missing rather than filling the gap.`,
     name: 'Marketing Agent',
     role: 'Positioning, campaigns and the story',
     accent: '#A78BFA',
-    hero: [0.236, 0.398],
+    station: [0.258, 0.477],
     expertise: `You handle marketing: positioning, campaigns, content and how the
 product is described to people who have never seen it.
 
@@ -151,7 +161,7 @@ Never write a superlative you cannot support.`,
     name: 'Sales Agent',
     role: 'Pipeline, deals and customer conversations',
     accent: '#FB923C',
-    hero: [0.652, 0.552],
+    station: [0.61, 0.266],
     expertise: `You handle sales: pipeline, outreach, follow-ups and deal state.
 
 Lead with what needs the seller's action today, then what is merely worth
@@ -165,7 +175,7 @@ than one that reads worse.`,
     name: 'Operations Agent',
     role: 'Process, logistics and keeping things running',
     accent: '#38BDF8',
-    hero: [0.625, 0.246],
+    station: [0.636, 0.559],
     expertise: `You handle operations: process, scheduling, vendors, logistics and the
 day-to-day mechanics of the business running.
 
@@ -178,7 +188,7 @@ did. When you find a bottleneck, say what it costs and what would clear it.`,
     name: 'CTO Agent',
     role: 'Architecture, technical strategy and risk',
     accent: '#60A5FA',
-    hero: [0.742, 0.214],
+    station: [0.74, 0.266],
     expertise: `You handle technical strategy: architecture, build-versus-buy, scaling,
 security posture and technical risk.
 
@@ -193,7 +203,7 @@ urgent is how teams over-engineer.`,
     name: 'Development Agent',
     role: 'Shipping, code and engineering delivery',
     accent: '#22D3EE',
-    hero: [0.734, 0.402],
+    station: [0.69, 0.432],
     expertise: `You handle engineering delivery: what is being built, what is blocked,
 what shipped and what broke.
 
@@ -206,7 +216,7 @@ with two failing checks is. When you report a blocker, name who can clear it.`,
     name: 'Design Agent',
     role: 'Product design, UX and the interface',
     accent: '#F0ABFC',
-    hero: [0.812, 0.428],
+    station: [0.788, 0.455],
     expertise: `You handle product design: flows, interface, usability and design
 system consistency.
 
@@ -240,7 +250,7 @@ export const DEPARTMENT_AGENTS: readonly AgentDefinition[] = DEPARTMENTS.map(
       id: seed.key,
       label: seed.name.replace(' Agent', ''),
       position: ring(index, DEPARTMENTS.length),
-      hero: seed.hero,
+      station: seed.station,
     },
     accent: seed.accent,
     enabled: true,

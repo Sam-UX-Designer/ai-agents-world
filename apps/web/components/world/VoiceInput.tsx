@@ -147,12 +147,12 @@ export function VoiceInput({
             : 'Speak your goal'
       }
       style={{
-        width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
         display: 'grid', placeItems: 'center', cursor: state === 'denied' ? 'not-allowed' : 'pointer',
-        border: '1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)',
-        background: listening
-          ? 'var(--color-danger)'
-          : 'color-mix(in srgb, var(--color-ink-600) 60%, transparent)',
+        border: '1px solid rgb(255 255 255 / 0.12)',
+        // Inside the command container, so a plain surface rather than its own
+        // glass - nesting glass inside glass muddies both.
+        background: listening ? 'var(--color-danger)' : 'rgb(255 255 255 / 0.08)',
         color: listening ? '#fff' : 'var(--color-text)',
         opacity: state === 'denied' ? 0.4 : 1,
         transition: 'background 160ms',

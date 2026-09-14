@@ -3,9 +3,9 @@
 import { useCallback, useRef, useState } from 'react'
 import type { AgentInfo } from '@/lib/api'
 import { api } from '@/lib/api'
-import { pointOn, useCoverRect } from '@/lib/useCoverRect'
+import { pointOn, useCoverRect } from '@/lib/coverRect'
 import { useWorld, type AgentView } from '@/lib/store'
-import { VoiceInput } from '@/components/hero/VoiceInput'
+import { VoiceInput } from './VoiceInput'
 
 /**
  * The Agent World.
@@ -77,34 +77,51 @@ function Markers({
     <div className="markers">
       {agents.map((agent) => {
         const view = agentStates[agent.key]
-        const { left, top } = pointOn(rect, agent.zone.hero as [number, number])
+        const { left, top } = pointOn(rect, agent.zone.station as [number, number])
         const busy = ['planning', 'spawning', 'working'].includes(view?.state ?? 'idle')
         const primary = agent.key === 'orchestrator'
         // A label centred on a station near the right edge runs under the
         // panels. Flipping which side of the anchor it extends from keeps the
         // dot exactly on its station - moving the anchor would put the agent
         // somewhere it is not.
-        const fx = agent.zone.hero[0] ?? 0.5
-        const side = fx > 0.7 ? 'left' : fx < 0.18 ? 'right' : 'center'
+        const fx = agent.zone.station[0] ?? 0.5
+        const side = fx > 0.84 ? 'left' : fx < 0.14 ? 'right' : 'center'
 
         return (
-          <button
+          /*
+           * One anchor per station.
+           *
+           * `left`/`top` is the robot's exact position in the artwork. The
+           * card is lifted off it in CSS rather than by shifting the anchor,
+           * so the mascot slot underneath stays exactly on the station when
+           * the artwork arrives.
+           */
+          <div
             key={agent.key}
-            className="marker"
-            data-state={view?.state ?? 'idle'}
-            data-primary={primary}
+            className="station"
             data-side={side}
-            aria-pressed={selected === agent.key}
-            onClick={() => select(selected === agent.key ? null : agent.key)}
             style={{ left, top }}
           >
-            <span className="marker__dot" style={{ ['--dot' as string]: dotColour(view?.state, agent.accent) }} />
-            <span className="marker__label">
-              <strong>{agent.name}</strong>
-              <em>{view?.activity ?? 'Ready'}</em>
-            </span>
-            {busy && <span className="marker__pulse" aria-hidden="true" />}
-          </button>
+            {/* Reserved for the mascot. Sits on the station itself. */}
+            <span className="station__mascot" data-state={view?.state ?? 'idle'} aria-hidden="true" />
+
+            <button
+              className="marker"
+              data-state={view?.state ?? 'idle'}
+              data-primary={primary}
+              aria-pressed={selected === agent.key}
+              onClick={() => select(selected === agent.key ? null : agent.key)}
+            >
+              <span className="marker__icon" style={{ ['--accent' as string]: agent.accent }}>
+                {agent.name.charAt(0)}
+              </span>
+              <span className="marker__label">
+                <strong>{agent.name}</strong>
+                <em>{view?.activity ?? 'Ready'}</em>
+              </span>
+              {busy && <span className="marker__pulse" aria-hidden="true" />}
+            </button>
+          </div>
         )
       })}
     </div>
@@ -233,8 +250,11 @@ export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void 
   const onFinal = useCallback(() => input.current?.focus(), [])
 
   return (
-    <div className="command">
-      <div className="command__bar glass">
+    /* One glass container. The input row and the suggestion pills are both
+       inside it, so they read as one component rather than a bar with
+       unrelated chips floating beneath it. */
+    <div className="command glass">
+      <div className="command__row">
         <span className="command__spark" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none">
             <path d="M12 3.5 13.8 9l5.5 1.8-5.5 1.8L12 18l-1.8-5.4L4.7 10.8 10.2 9 12 3.5Z"
@@ -277,7 +297,7 @@ export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void 
 
       <div className="command__pills">
         {SUGGESTIONS.map((s) => (
-          <button key={s} className="pill glass" onClick={() => setPrompt(s)} disabled={busy}>
+          <button key={s} className="pill" onClick={() => setPrompt(s)} disabled={busy}>
             {s}
           </button>
         ))}
@@ -288,14 +308,6 @@ export function CommandBar({ onStarted }: { onStarted: (goalId: string) => void 
       )}
     </div>
   )
-}
-
-function dotColour(state: string | undefined, accent: string): string {
-  if (state === 'needs_input') return 'var(--color-warn)'
-  if (state === 'completed') return 'var(--color-ok)'
-  if (state === 'error') return 'var(--color-danger)'
-  if (!state || state === 'idle') return 'rgba(190, 214, 240, .55)'
-  return accent
 }
 
 function MissingArtwork() {

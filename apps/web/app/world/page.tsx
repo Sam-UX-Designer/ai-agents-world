@@ -9,7 +9,6 @@ import { ActiveAgents, CommandBar, TaskInProgress, World } from '@/components/wo
 import { AgentPanel } from '@/components/ui/AgentPanel'
 import { ApprovalSheet } from '@/components/ui/ApprovalSheet'
 import { Results } from '@/components/ui/Results'
-import { TaskProgress } from '@/components/ui/TaskProgress'
 
 /**
  * Home - the Agent World.
@@ -53,12 +52,16 @@ export default function HomePage() {
 
       <Chrome user={me ? { name: me.user.name, plan: 'Pro plan' } : null} />
 
-      {/* Right side: live agents while running, the breakdown or the result
-          once there is one. Never both - the dock replaces the roster. */}
-      {goalId ? (
+      {/*
+        Right side: the live agent roster while work is in flight, the result
+        once it is done. The roster is the reference's panel - a separate task
+        breakdown alongside it would be a dashboard section the design does not
+        have, and the same information already reaches the user through the
+        agents themselves and the progress card.
+      */}
+      {showResult ? (
         <div className="world-dock" aria-live="polite">
-          {!showResult && <TaskProgress agents={agents} />}
-          {showResult && <Results />}
+          <Results />
         </div>
       ) : (
         <ActiveAgents agents={agents} />

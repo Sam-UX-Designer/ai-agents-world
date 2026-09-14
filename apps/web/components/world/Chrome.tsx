@@ -38,7 +38,7 @@ export function Chrome({
         </span>
       </div>
 
-      <nav className="sidenav glass" aria-label="Main">
+      <nav className="sidenav" aria-label="Main">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href
           return (
@@ -55,18 +55,21 @@ export function Chrome({
           )
         })}
 
-        {user && (
-          <span className="sidenav__user">
-            <span className="sidenav__avatar" aria-hidden="true">
-              {(user.name ?? '?').charAt(0).toUpperCase()}
-            </span>
-            <span className="sidenav__who">
-              <strong>{user.name ?? 'Signed in'}</strong>
-              <em>{user.plan ?? 'Free plan'}</em>
-            </span>
-          </span>
-        )}
       </nav>
+
+      {/* Separate from the navigation, further down, floating on its own -
+          not a row inside a shared container. */}
+      {user && (
+        <div className="profile">
+          <span className="profile__avatar" aria-hidden="true">
+            {(user.name ?? '?').charAt(0).toUpperCase()}
+          </span>
+          <span className="profile__who">
+            <strong>{user.name ?? 'Signed in'}</strong>
+            <em>{user.plan ?? 'Free plan'}</em>
+          </span>
+        </div>
+      )}
 
       <div className="topright">
         <button className="iconbtn glass" aria-label="Search">
