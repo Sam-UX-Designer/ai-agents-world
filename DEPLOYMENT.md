@@ -36,18 +36,21 @@ is wrong with Next.js.
 
 ### The fix
 
-1. Vercel → your project → **Settings** → **Build and Deployment**
-2. Find **Output Directory**. It has `apps/web/.next` typed into it.
-3. **Clear that field** and save. Leave it empty.
-4. Check **Root Directory** just above it says `apps/web`.
-5. **Deployments** → newest → ⋯ → **Redeploy**.
+Already done in the repository - there is nothing to change in the dashboard.
 
-Step 3 is the one that matters. `apps/web/vercel.json` already specifies the
-right output directory; the dashboard value was fighting it.
+A `vercel.json` sat at the repository root saying `outputDirectory:
+"apps/web/.next"`. Vercel reads that file from the repository root even when
+Root Directory is set to `apps/web`, so the build ran inside `apps/web` and
+then looked for `apps/web/.next` relative to it. Hence the doubled path.
 
-If it fails again, check which commit deployed - the Deployments list shows
-the commit next to each build. It must be on `claude/keen-dirac-jjcw14`, at
-`Ease the frost back to 78-85%` or later.
+It is deleted. The only `vercel.json` left is `apps/web/vercel.json`, whose
+output directory is `.next` - correct relative to where the build runs.
+
+**Deployments** → newest → ⋯ → **Redeploy**, on
+`claude/keen-dirac-jjcw14` at `Fix both deploys` or later.
+
+Leave the dashboard as it is: Output Directory override **off**, Root
+Directory `apps/web`, your Build and Install Command overrides are fine.
 
 ---
 
@@ -87,6 +90,10 @@ No terminal, at any point.
 
 5. **Apply**. The first build takes 3-5 minutes. It installs, compiles, and
    creates the database tables for you.
+
+   If this first build fails on the last step (`db:migrate`), the database
+   was not finished provisioning yet. Click **Manual Deploy** → **Deploy
+   latest commit** once and it will go through.
 6. When it goes live, Render shows a URL like
    `https://agents-world-api.onrender.com`. Open `<that URL>/health` in your
    browser — it should answer `{"ok":true}`.

@@ -24,13 +24,29 @@ services:
     # sleeps resumes on the next request, because the run is persisted rather
     # than held in memory - but a paid instance is what you want in the end.
     healthCheckPath: /health
+    # Two things this command has to work around:
+    #
+    #   `corepack enable` on its own writes a pnpm shim into /usr/bin, which
+    #   is read-only on Render, and the build dies before it starts. Pointing
+    #   it at a writable directory and putting that on PATH fixes it.
+    #
+    #   `--prod=false` because NODE_ENV is production here, and pnpm then
+    #   skips devDependencies - which is where typescript and drizzle-kit
+    #   live. Without it the build cannot compile or migrate anything.
     buildCommand: >-
-      corepack enable &&
-      pnpm install --frozen-lockfile &&
+      mkdir -p "$HOME/.local/bin" &&
+      corepack enable --install-directory "$HOME/.local/bin" &&
+      export PATH="$HOME/.local/bin:$PATH" &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter @agents-world/shared build &&
       pnpm --filter @agents-world/api build &&
       pnpm --filter @agents-world/api db:migrate
-    startCommand: pnpm --filter @agents-world/api start
+
+    # Node directly, not through pnpm: the start command runs in a fresh shell
+    # that has none of the build's PATH, and there is nothing pnpm would add
+    # here anyway. Node resolves apps/api/node_modules from the file's own
+    # directory upward.
+    startCommand: node apps/api/dist/main.js
     envVars:
       - key: NODE_ENV
         value: production
