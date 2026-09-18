@@ -36,21 +36,25 @@ is wrong with Next.js.
 
 ### The fix
 
-Already done in the repository - there is nothing to change in the dashboard.
+Nothing to change in the dashboard. Your settings are already right: Output
+Directory override **off**, Root Directory `apps/web`, Build and Install
+Command overrides as they are.
 
-A `vercel.json` sat at the repository root saying `outputDirectory:
-"apps/web/.next"`. Vercel reads that file from the repository root even when
-Root Directory is set to `apps/web`, so the build ran inside `apps/web` and
-then looked for `apps/web/.next` relative to it. Hence the doubled path.
+There is now no `vercel.json` in the repository at all. With the Next.js
+preset and a Root Directory of `apps/web`, Vercel's own default finds
+`.next` exactly where the build puts it, so there is no value left anywhere
+that can double the path.
 
-It is deleted. The only `vercel.json` left is `apps/web/vercel.json`, whose
-output directory is `.next` - correct relative to where the build runs.
+### If the error comes back after that
 
-**Deployments** → newest → ⋯ → **Redeploy**, on
-`claude/keen-dirac-jjcw14` at `Fix both deploys` or later.
+You are almost certainly rebuilding an old commit. **Redeploy** on a past
+deployment rebuilds *that deployment's commit*, not the newest one - so a fix
+pushed afterwards is not in it, and it fails the same way forever.
 
-Leave the dashboard as it is: Output Directory override **off**, Root
-Directory `apps/web`, your Build and Install Command overrides are fine.
+Push a commit instead, or use **Deployments** → the row at the top of the
+list → confirm the commit hash next to it matches the newest commit on
+`claude/keen-dirac-jjcw14`. Any deployment triggered by a push is always on
+the latest code.
 
 ---
 
