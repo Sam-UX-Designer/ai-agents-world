@@ -1608,3 +1608,231 @@ html, body {
     to { opacity: 1; transform: none; }
   }
 }
+
+/* ===========================================================================
+   Sign in
+   ---------------------------------------------------------------------------
+   The one screen in the app that is not the island, and the only one that
+   offers a light theme. Everything here reads from `--auth-*` tokens which are
+   redefined under [data-theme="light"], so the two themes are one layout.
+
+   The rest of the app never sets data-theme, so nothing else changes
+   appearance.
+   =========================================================================== */
+
+:root {
+  --auth-bg: radial-gradient(ellipse 120% 90% at 50% -20%, #17405F 0%, #04070D 62%);
+  --auth-card: linear-gradient(168deg, rgba(20, 32, 50, 0.82), rgba(10, 18, 31, 0.9));
+  --auth-border: rgba(255, 255, 255, 0.14);
+  --auth-shadow: 0 24px 70px rgb(0 0 0 / 0.45);
+  --auth-field: rgb(255 255 255 / 0.05);
+  --auth-field-border: rgb(255 255 255 / 0.13);
+  --auth-social: rgb(255 255 255 / 0.06);
+  --auth-social-border: rgb(255 255 255 / 0.14);
+  --auth-social-hover: rgb(255 255 255 / 0.11);
+  --auth-text: #F2F7FF;
+  --auth-dim: #A9BFDA;
+  --auth-rule: rgb(255 255 255 / 0.10);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --auth-bg: radial-gradient(ellipse 120% 90% at 50% -20%, #DCEBFF 0%, #F4F7FC 60%);
+  --auth-card: linear-gradient(168deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.96));
+  --auth-border: rgba(12, 28, 56, 0.10);
+  --auth-shadow: 0 24px 60px rgb(20 40 80 / 0.14);
+  --auth-field: rgb(12 28 56 / 0.035);
+  --auth-field-border: rgb(12 28 56 / 0.13);
+  --auth-social: rgb(255 255 255 / 0.9);
+  --auth-social-border: rgb(12 28 56 / 0.13);
+  --auth-social-hover: rgb(12 28 56 / 0.05);
+  /* 14.8:1 on the card above - the light theme is where contrast usually
+     quietly fails, so this is the darker end of comfortable rather than grey. */
+  --auth-text: #0C1626;
+  --auth-dim: #55677F;
+  --auth-rule: rgb(12 28 56 / 0.10);
+}
+
+.auth {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: var(--auth-bg);
+  color: var(--auth-text);
+  /* Long enough to read as a deliberate change, short enough not to wait. */
+  transition: background 420ms ease, color 240ms ease;
+}
+
+.auth__card {
+  width: 100%;
+  max-width: 400px;
+  padding: 30px 28px;
+  border-radius: 22px;
+  background: var(--auth-card);
+  border: 1px solid var(--auth-border);
+  box-shadow: var(--auth-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  transition: background 420ms ease, border-color 420ms ease, box-shadow 420ms ease;
+}
+
+.auth__title { margin: 0; font-size: 25px; font-weight: 660; letter-spacing: -0.022em; }
+.auth__sub { margin: 6px 0 24px; font-size: 13.5px; line-height: 1.5; color: var(--auth-dim); }
+
+/* ------------------------------------------------------- theme toggle -- */
+
+.auth__theme {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top));
+  right: 18px;
+  z-index: 10;
+  width: 44px; height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--auth-text);
+  background: var(--auth-social);
+  border: 1px solid var(--auth-social-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+.auth__theme:hover { background: var(--auth-social-hover); }
+.auth__theme:active { transform: scale(0.94); }
+
+/* Sun and moon share one 44px box and swap by rotating through it, so the
+   change reads as one object turning rather than two icons cross-fading. */
+.auth__theme svg {
+  grid-area: 1 / 1;
+  transition: opacity 360ms ease, transform 420ms cubic-bezier(.34, 1.4, .5, 1);
+}
+.auth__theme svg[data-hidden="true"] {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+.auth__theme svg[data-hidden="false"] {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+/* ------------------------------------------------------------ socials -- */
+
+.auth__socials { display: grid; gap: 10px; }
+
+.auth__social {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 46px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 560;
+  color: var(--auth-text);
+  cursor: pointer;
+  background: var(--auth-social);
+  border: 1px solid var(--auth-social-border);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.auth__social:hover:not(:disabled) { background: var(--auth-social-hover); }
+.auth__social:active:not(:disabled) { transform: scale(0.99); }
+.auth__social:disabled { opacity: .55; cursor: not-allowed; }
+
+.auth__rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--auth-dim);
+}
+.auth__rule::before, .auth__rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--auth-rule);
+}
+
+/* ------------------------------------------------------------- fields -- */
+
+.auth__form { display: grid; gap: 12px; }
+
+.auth__field { display: grid; gap: 6px; }
+.auth__field > span { font-size: 12px; font-weight: 550; color: var(--auth-dim); }
+
+.auth__field input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 13px;
+  border-radius: 11px;
+  font-family: inherit;
+  /* 16px so iOS does not zoom the page when the field takes focus. */
+  font-size: 16px;
+  color: var(--auth-text);
+  background: var(--auth-field);
+  border: 1px solid var(--auth-field-border);
+  outline: 0;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.auth__field input:focus { border-color: var(--color-accent); }
+.auth__field input::placeholder { color: var(--auth-dim); opacity: .75; }
+
+.auth__submit {
+  height: 46px;
+  margin-top: 4px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  box-shadow: 0 6px 20px rgb(20 90 190 / 0.35);
+  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+.auth__submit:hover:not(:disabled) { filter: brightness(1.08); }
+.auth__submit:active:not(:disabled) { transform: scale(0.99); }
+.auth__submit:disabled { opacity: .5; cursor: not-allowed; }
+
+.auth__error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--color-danger);
+  background: rgb(251 113 133 / 0.10);
+  border: 1px solid rgb(251 113 133 / 0.24);
+}
+
+.auth__switch {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--auth-dim);
+}
+.auth__switch button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+.auth__switch button:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth, .auth__card, .auth__theme svg { transition: none; }
+}

@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { and, desc, eq } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import {
   AGENT_REGISTRY,
@@ -16,6 +16,7 @@ import {
   type ProviderDefinition,
   type ProviderStatus,
 } from '@agents-world/shared'
+import { AuthError, login, MIN_PASSWORD_LENGTH, register } from '../auth/password.js'
 import { issueSession, revokeSession, SESSION_COOKIE } from '../auth/sessions.js'
 import { completeSignIn, resolveUser, startSignIn } from '../auth/signin.js'
 import { getWorkspace, setAutonomyLevel } from '../auth/workspaces.js'
@@ -139,6 +140,12 @@ export async function registerRoutes(
     if (!consumed) {
       return reply.redirect(`${config().APP_URL}/connect?error=expired`)
     }
+    // A state with no owner belongs to a sign-in, not to a connection. It
+    // cannot be completed here, and quietly treating it as one would attach
+    // someone's mailbox token to nobody.
+    if (!consumed.userId || !consumed.workspaceId) {
+      return reply.redirect(`${config().APP_URL}/connect?error=expired`)
+    }
 
     try {
       const grant = await exchangeCode(consumed.provider, query.code, consumed.codeVerifier)
@@ -166,7 +173,7 @@ export async function registerRoutes(
   /** Begin sign-in. Identity scopes only - no mail, no calendar. */
   app.get('/auth/:provider/signin', async (request, reply) => {
     const { provider } = request.params as { provider: string }
-    if (provider !== 'google' && provider !== 'microsoft') {
+    if (provider !== 'google' && provider !== 'apple' && provider !== 'microsoft') {
       return reply.status(404).send({ error: 'Unknown sign-in provider' })
     }
 
@@ -174,18 +181,116 @@ export async function registerRoutes(
       const url = await startSignIn(provider, (request.query as { returnTo?: string }).returnTo)
       return { url }
     } catch (err) {
-      return reply.status(409).send({
-        error: err instanceof Error ? err.message : 'Sign-in is not configured',
+      /*
+       * Never hand the browser the raw failure.
+       *
+       * This route once returned err.message straight through, so a failing
+       * INSERT put the whole statement - table, columns, parameter values -
+       * on the sign-in screen. It told an attacker the schema and told the
+       * user nothing they could act on.
+       *
+       * "Not configured" is a deliberate exception: it is the one cause a
+       * person can actually do something about.
+       */
+      request.log.error({ err, provider }, 'sign-in could not be started')
+      const notConfigured = err instanceof Error && /not configured/i.test(err.message)
+      return reply.status(notConfigured ? 409 : 500).send({
+        error: notConfigured
+          ? `${PROVIDER_NAMES[provider]} sign-in is not set up on this deployment yet.`
+          : 'Could not start sign-in. Please try again.',
       })
     }
   })
 
-  app.get('/auth/:provider/signin-callback', async (request, reply) => {
+  // ------------------------------------------------- email and password --
+
+
+  const PROVIDER_NAMES: Record<string, string> = {
+    google: 'Google',
+    apple: 'Apple',
+    microsoft: 'Microsoft',
+  }
+
+  const registration = z.object({
+    name: z.string().min(1, 'Your name is required').max(120),
+    email: z.email('Enter a valid email address').max(254),
+    password: z.string().min(MIN_PASSWORD_LENGTH).max(200),
+    phone: z.string().max(40).optional(),
+  })
+
+  /** Issue the session cookie both password routes end with. */
+  const signInAs = async (
+    reply: FastifyReply,
+    who: { userId: string; workspaceId: string },
+    request: FastifyRequest,
+  ) => {
+    const { token, expiresAt } = await issueSession({
+      ...who,
+      userAgent: request.headers['user-agent'],
+      ipAddress: request.ip,
+    })
+
+    return reply
+      .setCookie(SESSION_COOKIE, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: config().NODE_ENV === 'production',
+        path: '/',
+        expires: expiresAt,
+      })
+      .send({ signedIn: true })
+  }
+
+  app.post('/auth/register', async (request, reply) => {
+    const body = registration.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({
+        error: body.error.issues[0]?.message ?? 'Check the details and try again.',
+      })
+    }
+
+    try {
+      return await signInAs(reply, await register(body.data), request)
+    } catch (err) {
+      if (err instanceof AuthError) return reply.status(err.status).send({ error: err.message })
+      request.log.error({ err }, 'registration failed')
+      return reply.status(500).send({ error: 'Could not create your account. Please try again.' })
+    }
+  })
+
+  app.post('/auth/login', async (request, reply) => {
+    const body = z
+      .object({ email: z.string().min(1).max(254), password: z.string().min(1).max(200) })
+      .safeParse(request.body)
+
+    if (!body.success) {
+      return reply.status(400).send({ error: 'Enter your email and password.' })
+    }
+
+    try {
+      return await signInAs(reply, await login(body.data.email, body.data.password), request)
+    } catch (err) {
+      if (err instanceof AuthError) return reply.status(err.status).send({ error: err.message })
+      request.log.error({ err }, 'login failed')
+      return reply.status(500).send({ error: 'Could not sign you in. Please try again.' })
+    }
+  })
+
+  /**
+   * The sign-in callback.
+   *
+   * Registered twice: Google and Microsoft redirect back with a GET, but
+   * Apple insists on a form POST whenever the request asked for name or
+   * email. Same handler either way, reading the payload from whichever side
+   * of the request carries it.
+   */
+  const handleSignInCallback = async (request: FastifyRequest, reply: FastifyReply) => {
     const { provider } = request.params as { provider: string }
-    const query = request.query as { code?: string; state?: string; error?: string }
+    const source = { ...(request.query as object), ...(request.body as object | undefined) }
+    const query = source as { code?: string; state?: string; error?: string }
     const appUrl = config().APP_URL.replace(/\/$/, '')
 
-    if (provider !== 'google' && provider !== 'microsoft') {
+    if (provider !== 'google' && provider !== 'apple' && provider !== 'microsoft') {
       return reply.redirect(`${appUrl}/signin?error=unknown_provider`)
     }
     if (query.error || !query.code || !query.state) {
@@ -224,7 +329,10 @@ export async function registerRoutes(
       request.log.error({ err }, 'sign-in failed')
       return reply.redirect(`${appUrl}/signin?error=signin_failed`)
     }
-  })
+  }
+
+  app.get('/auth/:provider/signin-callback', handleSignInCallback)
+  app.post('/auth/:provider/signin-callback', handleSignInCallback)
 
   app.post('/auth/signout', async (request, reply) => {
     const token = request.cookies[SESSION_COOKIE]

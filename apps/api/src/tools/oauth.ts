@@ -111,8 +111,14 @@ export async function startAuthorisation(input: StartAuthInput): Promise<string>
 }
 
 export interface ConsumedState {
-  readonly userId: string
-  readonly workspaceId: string
+  /**
+   * Null when the state was created by a sign-in, which has no account yet.
+   * A connect callback must check rather than assume: the two flows share
+   * this table, and a sign-in state arriving on the connect route is exactly
+   * the confusion worth refusing.
+   */
+  readonly userId: string | null
+  readonly workspaceId: string | null
   readonly provider: ConnectionProvider
   readonly codeVerifier: string
   readonly returnTo: string | null

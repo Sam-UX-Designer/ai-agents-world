@@ -28,6 +28,17 @@ const schema = z.object({
   MICROSOFT_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
 
+  /**
+   * Apple sign-in. Four values, all from the Apple Developer portal, and all
+   * required together - Apple's client secret is a JWT this server signs with
+   * the .p8 key rather than a static string. APPLE_PRIVATE_KEY holds the .p8
+   * contents with its newlines escaped as \n.
+   */
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_TEAM_ID: z.string().optional(),
+  APPLE_KEY_ID: z.string().optional(),
+  APPLE_PRIVATE_KEY: z.string().optional(),
+
   SLACK_CLIENT_ID: z.string().optional(),
   SLACK_CLIENT_SECRET: z.string().optional(),
   SLACK_REDIRECT_URI: z.string().optional(),

@@ -90,8 +90,20 @@ export interface IntegrationInfo {
 export const api = {
   me: () => request<Me>('/me'),
 
-  signInUrl: (provider: 'google' | 'microsoft') =>
+  signInUrl: (provider: 'google' | 'apple') =>
     request<{ url: string }>(`/auth/${provider}/signin`),
+
+  register: (input: { name: string; email: string; password: string; phone?: string }) =>
+    request<{ signedIn: boolean }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  login: (email: string, password: string) =>
+    request<{ signedIn: boolean }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
 
   signOut: () => request<{ signedOut: boolean }>('/auth/signout', { method: 'POST' }),
 

@@ -47,6 +47,13 @@ export const users = pgTable(
     email: text('email').notNull(),
     name: text('name'),
     avatarUrl: text('avatar_url'),
+    phone: text('phone'),
+    /**
+     * Null for anyone who signs in through Google or Apple - most accounts.
+     * Only set when someone registers with an email and password, and never
+     * the password itself: this is a scrypt hash with its own salt.
+     */
+    passwordHash: text('password_hash'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('users_email_idx').on(t.email)],
@@ -350,8 +357,17 @@ export const oauthStates = pgTable(
   'oauth_states',
   {
     state: text('state').primaryKey(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    /**
+     * Null while signing in.
+     *
+     * Connecting a tool happens as a known user, so both ids are present.
+     * Signing in is the opposite: there is no account yet, and the row exists
+     * precisely so the callback can be trusted before one is created. These
+     * were previously not-null with a nil UUID written into them, which the
+     * foreign key rejected outright - sign-in could never have worked.
+     */
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     provider: text('provider').notNull(),
     codeVerifier: text('code_verifier').notNull(),
     /** Where to send the user once the connection succeeds. */

@@ -1,11 +1,11 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, createPrivateKey, randomBytes, sign as signWith } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { config } from '../config.js'
 import { db, schema } from '../db/client.js'
 import { createWorkspace } from './workspaces.js'
 
 /**
- * Sign-in with Google and Microsoft.
+ * Sign-in with Google, Apple and Microsoft.
  *
  * Separate from the integration OAuth in tools/oauth.ts, and deliberately so.
  * That flow asks for access to a user's mail; this one only establishes who
@@ -18,22 +18,63 @@ const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
 const MICROSOFT_AUTH = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize'
 const MICROSOFT_TOKEN = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+const APPLE_AUTH = 'https://appleid.apple.com/auth/authorize'
+const APPLE_TOKEN = 'https://appleid.apple.com/auth/token'
 
 /** Identity only. No mail, no calendar, no files. */
 const IDENTITY_SCOPES = ['openid', 'email', 'profile'] as const
 
-export type IdentityProvider = 'google' | 'microsoft'
+export type IdentityProvider = 'google' | 'apple' | 'microsoft'
 
 const STATE_TTL_MS = 10 * 60 * 1000
 
 /**
- * Sign-in state lives in the same table as integration state.
- *
- * It needs a user id and a workspace id it does not have yet, so both are set
- * to the nil UUID and ignored on the way back. Reusing the table keeps one
+ * Sign-in state lives in the same table as integration state, so there is one
  * expiry sweep and one replay defence rather than two that can drift.
+ *
+ * It has no user id or workspace id to record - that is the whole point of
+ * signing in - so both are left null. They used to be written as a nil UUID,
+ * which the foreign key to `users` rejected: every sign-in failed on the very
+ * first query, before a single request reached Google.
  */
-const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
+/**
+ * Apple's client secret is not a string you paste - it is a short-lived ES256
+ * JWT you sign yourself with the .p8 key from the developer portal. Generated
+ * per request rather than cached: it costs microseconds, and a cached one is
+ * a secret sitting in memory for no reason.
+ */
+function appleClientSecret(): string {
+  const c = config()
+  if (!c.APPLE_CLIENT_ID || !c.APPLE_TEAM_ID || !c.APPLE_KEY_ID || !c.APPLE_PRIVATE_KEY) {
+    throw new Error('Apple sign-in is not configured.')
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  const header = { alg: 'ES256', kid: c.APPLE_KEY_ID, typ: 'JWT' }
+  const payload = {
+    iss: c.APPLE_TEAM_ID,
+    iat: now,
+    // Apple allows up to six months. Minutes is all this needs.
+    exp: now + 300,
+    aud: 'https://appleid.apple.com',
+    sub: c.APPLE_CLIENT_ID,
+  }
+
+  const encode = (value: object): string =>
+    Buffer.from(JSON.stringify(value)).toString('base64url')
+  const signingInput = `${encode(header)}.${encode(payload)}`
+
+  // Env vars cannot hold real newlines, so the key is stored with \n escapes.
+  const key = createPrivateKey(c.APPLE_PRIVATE_KEY.replace(/\\n/g, '\n'))
+  // JOSE wants the raw r||s pair, not the DER sequence OpenSSL produces.
+  const signature = signWith('sha256', Buffer.from(signingInput), {
+    key,
+    dsaEncoding: 'ieee-p1363',
+  })
+
+  return `${signingInput}.${signature.toString('base64url')}`
+}
 
 export async function startSignIn(
   provider: IdentityProvider,
@@ -46,8 +87,8 @@ export async function startSignIn(
 
   await db().insert(schema.oauthStates).values({
     state,
-    userId: NIL_UUID,
-    workspaceId: NIL_UUID,
+    userId: null,
+    workspaceId: null,
     provider: `signin:${provider}`,
     codeVerifier,
     returnTo: returnTo ?? null,
@@ -63,6 +104,23 @@ export async function startSignIn(
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: IDENTITY_SCOPES.join(' '),
+      state,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+    })}`
+  }
+
+  if (provider === 'apple') {
+    // Throws when unconfigured, which is what the caller reports.
+    appleClientSecret()
+    return `${APPLE_AUTH}?${new URLSearchParams({
+      client_id: c.APPLE_CLIENT_ID ?? '',
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'name email',
+      // Apple insists on a form POST the moment you ask for name or email,
+      // so the callback for Apple is a POST route rather than a GET.
+      response_mode: 'form_post',
       state,
       code_challenge: challenge,
       code_challenge_method: 'S256',
@@ -96,14 +154,30 @@ export async function completeSignIn(
   const c = config()
   const redirectUri = `${c.APP_URL.replace(/\/$/, '')}/api/auth/${provider}/signin-callback`
 
-  const isGoogle = provider === 'google'
-  const res = await fetch(isGoogle ? GOOGLE_TOKEN : MICROSOFT_TOKEN, {
+  const endpoint =
+    provider === 'google' ? GOOGLE_TOKEN : provider === 'apple' ? APPLE_TOKEN : MICROSOFT_TOKEN
+
+  const clientId =
+    (provider === 'google'
+      ? c.GOOGLE_CLIENT_ID
+      : provider === 'apple'
+        ? c.APPLE_CLIENT_ID
+        : c.MICROSOFT_CLIENT_ID) ?? ''
+
+  const clientSecret =
+    provider === 'google'
+      ? (c.GOOGLE_CLIENT_SECRET ?? '')
+      : provider === 'apple'
+        ? appleClientSecret()
+        : (c.MICROSOFT_CLIENT_SECRET ?? '')
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: (isGoogle ? c.GOOGLE_CLIENT_ID : c.MICROSOFT_CLIENT_ID) ?? '',
-      client_secret: (isGoogle ? c.GOOGLE_CLIENT_SECRET : c.MICROSOFT_CLIENT_SECRET) ?? '',
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
       code_verifier: codeVerifier,

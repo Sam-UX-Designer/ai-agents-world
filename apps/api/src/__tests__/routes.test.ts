@@ -17,6 +17,8 @@ const { buildApp } = await import('../main.js')
 const { EventBus } = await import('../realtime/bus.js')
 const { PostgresEventStore } = await import('../realtime/store.js')
 const { issueSession, SESSION_COOKIE } = await import('../auth/sessions.js')
+const { schema: schemaFor } = await import('../db/client.js')
+const { eq: eqFor } = await import('drizzle-orm')
 
 /**
  * Route tests driven through Fastify's inject().
@@ -183,6 +185,131 @@ test('an integration with nothing built behind it never reports itself connected
     null,
     'Drive is not built, so it cannot claim a sibling\'s connection',
   )
+})
+
+/**
+ * Sign-in.
+ *
+ * The first of these is the regression that mattered: the sign-in state row
+ * used to be written with a nil UUID in user_id, which has a foreign key to
+ * `users`. Postgres refused the insert, so every Google sign-in died on the
+ * first query - and the raw SQL, parameters included, was sent to the browser
+ * as the error message. Nothing covered this route, which is why it shipped.
+ */
+test('starting a Google sign-in stores state without an account', async () => {
+  const res = await app.inject({ method: 'GET', url: '/auth/google/signin' })
+
+  assert.equal(res.statusCode, 200, res.body)
+  const { url } = res.json() as { url: string }
+  assert.ok(url.startsWith('https://accounts.google.com/'), 'sends the user to Google')
+
+  const state = new URL(url).searchParams.get('state')
+  assert.ok(state, 'a state parameter is issued')
+
+  const [row] = await db
+    .select()
+    .from(schemaFor.oauthStates)
+    .where(eqFor(schemaFor.oauthStates.state, state))
+
+  assert.ok(row, 'the state row exists')
+  assert.equal(row.userId, null, 'no account exists yet, so no user is claimed')
+  assert.equal(row.workspaceId, null)
+  assert.equal(row.provider, 'signin:google')
+})
+
+test('a failed sign-in never returns the underlying error to the browser', async () => {
+  // Apple has no credentials in this environment, which is the one cause a
+  // person can act on - so it is named, and nothing else leaks.
+  const res = await app.inject({ method: 'GET', url: '/auth/apple/signin' })
+
+  const body = res.json() as { error?: string }
+  assert.ok(body.error, 'an error is reported')
+  assert.match(body.error, /not set up|not configured/i)
+  assert.doesNotMatch(body.error, /insert into|select |params:|oauth_states/i,
+    'no SQL, table names or parameters reach the client')
+})
+
+test('registering with an email and password signs the person straight in', async () => {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/auth/register',
+    payload: { name: 'Sam Jo', email: 'Sam@Example.com', password: 'a-good-password', phone: '+91 90000 00000' },
+  })
+
+  assert.equal(res.statusCode, 200, res.body)
+  const cookie = res.cookies.find((c) => c.name === SESSION_COOKIE)
+  assert.ok(cookie, 'a session cookie is set')
+  assert.equal(cookie.httpOnly, true, 'not readable from JavaScript')
+
+  // That session works on a real route.
+  const me = await app.inject({
+    method: 'GET',
+    url: '/me',
+    headers: { cookie: `${SESSION_COOKIE}=${cookie.value}` },
+  })
+  assert.equal(me.statusCode, 200)
+  const who = me.json() as { user: { email: string; name: string | null }; workspace: unknown }
+  assert.equal(who.user.email, 'sam@example.com', 'email is normalised to lowercase')
+  assert.equal(who.user.name, 'Sam Jo')
+  assert.ok(who.workspace, 'and they have a workspace to land in')
+})
+
+test('a short password is refused before any account is made', async () => {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/auth/register',
+    payload: { name: 'Sam', email: 'short@example.com', password: 'abc' },
+  })
+  assert.equal(res.statusCode, 400)
+
+  const retry = await app.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'short@example.com', password: 'abc' },
+  })
+  assert.equal(retry.statusCode, 401, 'nothing was created')
+})
+
+test('logging in works, and a wrong password is refused without saying why', async () => {
+  await app.inject({
+    method: 'POST',
+    url: '/auth/register',
+    payload: { name: 'Sam', email: 'login@example.com', password: 'a-good-password' },
+  })
+
+  const ok = await app.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'login@example.com', password: 'a-good-password' },
+  })
+  assert.equal(ok.statusCode, 200)
+  assert.ok(ok.cookies.find((c) => c.name === SESSION_COOKIE))
+
+  const bad = await app.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'login@example.com', password: 'the-wrong-password' },
+  })
+  const unknown = await app.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'nobody@example.com', password: 'the-wrong-password' },
+  })
+
+  assert.equal(bad.statusCode, 401)
+  assert.equal(unknown.statusCode, 401)
+  assert.deepEqual(
+    bad.json(),
+    unknown.json(),
+    'a wrong password and an unknown address are indistinguishable',
+  )
+})
+
+test('the same email cannot register twice', async () => {
+  const payload = { name: 'Sam', email: 'dupe@example.com', password: 'a-good-password' }
+  await app.inject({ method: 'POST', url: '/auth/register', payload })
+  const second = await app.inject({ method: 'POST', url: '/auth/register', payload })
+  assert.equal(second.statusCode, 409)
 })
 
 test('a forged session cookie is refused', async () => {
