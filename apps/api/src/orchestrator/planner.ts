@@ -50,23 +50,27 @@ export interface Usage {
  * Describe the roster to the model.
  *
  * Built from the same registry the island renders, so the Orchestrator can
- * never assign work to an agent that does not exist on screen. Only agents
- * with at least one usable tool are listed: offering an agent whose
- * integration is disconnected produces a plan that fails on its first step.
+ * never assign work to an agent that does not exist on screen.
+ *
+ * Every agent is listed, tools or no tools. Listing only agents that hold a
+ * connected tool sounds safer and is in fact the difference between a working
+ * product and a dead one: a brand-new workspace has connected nothing, so that
+ * filter left the Orchestrator an empty roster, and every goal - including
+ * "explain X to me", which needs no integration at all - came back as "could
+ * not find any work to do". An agent's value is its judgement; a tool is how
+ * it reaches outside itself. What it can reach is stated per agent below, so
+ * the Orchestrator can still avoid handing someone a task they cannot fetch
+ * the inputs for.
  */
 function describeRoster(connected: readonly ConnectionProvider[]): string {
-  const usable = delegatableAgents().filter(
-    (a) => availableTools(a, connected).length > 0,
-  )
-
-  if (usable.length === 0) return '(No agents are available - no integrations are connected.)'
-
-  return usable
+  return delegatableAgents()
     .map((agent) => {
       const tools = availableTools(agent, connected)
-        .map((t) => `      - ${t.id}: ${t.label} (${t.effect})`)
-        .join('\n')
-      return `  ${agent.key} - ${agent.name}\n    ${agent.role}\n    Tools:\n${tools}`
+      const belt =
+        tools.length > 0
+          ? `Tools:\n${tools.map((t) => `      - ${t.id}: ${t.label} (${t.effect})`).join('\n')}`
+          : 'Tools: none connected - works from its own knowledge and from what earlier tasks return.'
+      return `  ${agent.key} - ${agent.name}\n    ${agent.role}\n    ${belt}`
     })
     .join('\n\n')
 }

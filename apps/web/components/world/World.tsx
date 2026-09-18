@@ -326,34 +326,70 @@ export function TaskInProgress({ onOpen }: { onOpen: () => void }) {
   const goalState = useWorld((s) => s.goalState)
   const tasks = useWorld((s) => s.tasks)
 
+  const goalError = useWorld((s) => s.goalError)
+
   if (!goalId) return null
 
   const list = Object.values(tasks)
   const done = list.filter((t) => t.state === 'succeeded').length
+  const failed = goalState === 'failed'
+
+  /*
+   * Three states, and the difference between them is the whole point of this
+   * card.
+   *
+   * Before the plan exists there is no denominator, so there is no percentage
+   * - it used to read "Planning... 0%" and sit there, which looks identical
+   * whether the Orchestrator is thinking or the run died on its first call.
+   * That is exactly how a failure became invisible: the goal had already
+   * failed, the reason was sitting in the store, and the card was still
+   * showing a calm 0%.
+   */
+  const waiting = !failed && list.length === 0
   const percent = list.length > 0 ? Math.round((done / list.length) * 100) : 0
 
   return (
     <button
       className="taskcard glass"
+      data-state={failed ? 'failed' : goalState === 'completed' ? 'done' : 'running'}
       onClick={onOpen}
       aria-expanded={false}
       aria-label="Show what is running"
     >
       <span className="taskcard__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
-          <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.7" />
-          <path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        {failed ? (
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
+            <circle cx="12" cy="12" r="8.2" stroke="currentColor" strokeWidth="1.7" />
+            <path d="M12 8v4.6m0 3.1v.1" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
+            <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.7" />
+            <path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </span>
       <span className="taskcard__body">
-        <strong>{goalState === 'completed' ? 'Task complete' : 'Task in progress'}</strong>
+        <strong>
+          {failed ? 'Could not finish' : goalState === 'completed' ? 'Task complete' : 'Task in progress'}
+        </strong>
         {goalPrompt && <q className="taskcard__prompt">{goalPrompt}</q>}
-        <em>{list.length > 0 ? `${done} of ${list.length} tasks done` : 'Planning…'}</em>
-        <span className="taskcard__bar">
-          <span className="taskcard__fill" style={{ width: `${percent}%` }} />
-        </span>
+        <em className={failed ? 'taskcard__why' : undefined}>
+          {failed
+            ? (goalError ?? 'No agent could start. Open this for the details.')
+            : waiting
+              ? 'Reading your goal…'
+              : `${done} of ${list.length} tasks done`}
+        </em>
+        {/* No bar on a failure: a progress track under a dead run is a
+            progress claim, and there is none to make. */}
+        {!failed && (
+          <span className="taskcard__bar" data-wait={waiting ? 'true' : undefined}>
+            <span className="taskcard__fill" style={waiting ? undefined : { width: `${percent}%` }} />
+          </span>
+        )}
       </span>
-      <span className="taskcard__pct">{percent}%</span>
+      {!failed && <span className="taskcard__pct">{waiting ? '—' : `${percent}%`}</span>}
     </button>
   )
 }

@@ -337,9 +337,12 @@ async function runTask(
       },
     )
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    await completeRun(run.id, 'error', null, message)
-    await markTaskFailed(bus, base, taskId, agent.key, message)
+    // Same split as everywhere else: the raw text is kept on the run and in
+    // the log, the screen gets a sentence the user can act on.
+    console.error('[orchestration] task threw', taskId, err)
+    const raw = err instanceof Error ? err.message : String(err)
+    await completeRun(run.id, 'error', null, raw)
+    await markTaskFailed(bus, base, taskId, agent.key, explainFailure(err).message)
     return 'failed'
   }
 
@@ -654,6 +657,24 @@ async function failGoal(
     .set({ state: 'failed', error, completedAt: new Date() })
     .where(eq(schema.goals.id, base.goalId))
     .catch(() => undefined)
+
+  // Stand the Orchestrator down before announcing the failure.
+  //
+  // It was left in whatever state it last reported - usually "Reading your
+  // goal" - so a goal that died during planning left the island showing one
+  // agent still at work on it, indefinitely. A robot is busy because a run is
+  // in flight; when the run ends the robot sits down, whichever way it ended.
+  await deps.bus
+    .emit({
+      ...base,
+      type: 'agent.state_changed',
+      agentKey: ORCHESTRATOR.key,
+      taskId: null,
+      state: 'error',
+      activity: 'Could not finish',
+      error,
+    })
+    .catch((e) => console.error('[orchestration] failed to stand down the hub', e))
 
   await deps.bus
     .emit({ ...base, type: 'goal.state_changed', state: 'failed', error })

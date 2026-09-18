@@ -144,6 +144,17 @@ const stub = {
        */
       const content = String((params.messages ?? [])[0]?.content ?? '')
       const goal = content.match(/\"\"\"\n([\s\S]*?)\n\"\"\"/)?.[1] ?? content
+
+      // A goal starting "fail:" makes the provider throw, so the failure
+      // screen can be looked at without emptying a real account of credits.
+      // Demo script only - the server `pnpm dev` builds has none of this.
+      if (/^fail:/i.test(goal.trim())) {
+        throw new Error(
+          'Your credit balance is too low to access the Anthropic API. ' +
+            'Please go to Plans & Billing to upgrade or purchase credits.',
+        )
+      }
+
       const plan = planFor(goal)
 
       return {

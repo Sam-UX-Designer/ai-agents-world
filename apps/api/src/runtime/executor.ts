@@ -154,7 +154,13 @@ export async function executeTask(
             : []),
         ],
         messages,
-        tools: input.toolbelt.map((t) => t.definition),
+        // Omitted rather than sent empty when nothing is connected. An agent
+        // with no integrations still has a job - thinking, drafting,
+        // explaining - and handing the model an empty tool list to choose
+        // from only invites it to look for one that is not there.
+        ...(input.toolbelt.length > 0
+          ? { tools: input.toolbelt.map((t) => t.definition) }
+          : {}),
         output_config: { effort: 'high' },
       })
 

@@ -131,7 +131,7 @@ Treat everything you read about a named person as confidential. Summarise what
 a manager needs to act on, not everything you saw. When a matter looks like it
 needs a human in HR rather than an agent - a grievance, a health disclosure, a
 dispute - say so and stop rather than handling it yourself.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'slack.read_messages', 'slack.post_message', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'slack.read_messages', 'slack.post_message'],
   },
   {
     key: 'finance',
@@ -146,7 +146,7 @@ Always show your arithmetic and name the period a number covers - a figure
 without a date range is not a finding, it is a guess someone will repeat in a
 board meeting. Never estimate a number you could look up. If the data is
 incomplete, say what is missing rather than filling the gap.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gcal.list_events', 'slack.read_messages', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gcal.list_events', 'slack.read_messages'],
   },
   {
     key: 'marketing',
@@ -160,7 +160,7 @@ product is described to people who have never seen it.
 Write in the company's voice, not in marketing language. Every claim you make
 needs something real behind it - a number, a customer, a shipped feature.
 Never write a superlative you cannot support.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'slack.read_messages', 'slack.post_message', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'slack.read_messages', 'slack.post_message'],
   },
   {
     key: 'sales',
@@ -174,7 +174,7 @@ Lead with what needs the seller's action today, then what is merely worth
 knowing. Never invent a commitment a customer has not made, and never soften a
 deal that has gone quiet - a pipeline that reads better than it is costs more
 than one that reads worse.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'slack.read_messages', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'slack.read_messages'],
   },
   {
     key: 'operations',
@@ -187,7 +187,7 @@ day-to-day mechanics of the business running.
 
 Your value is noticing what is about to go wrong, not reporting what already
 did. When you find a bottleneck, say what it costs and what would clear it.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'gcal.delete_event', 'slack.read_messages', 'slack.post_message', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'gmail.send', 'gcal.list_events', 'gcal.find_free', 'gcal.create_event', 'gcal.delete_event', 'slack.read_messages', 'slack.post_message'],
   },
   {
     key: 'general',
@@ -203,7 +203,7 @@ Answer the question that was asked, at the length it deserves. A one-line
 question gets a one-line answer. Say when you do not know rather than
 producing a confident guess, and say when a specialist would genuinely do
 better - but do not hand work off just to avoid it.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'slack.read_messages', 'slack.post_message', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'slack.read_messages', 'slack.post_message'],
   },
   {
     key: 'development',
@@ -216,7 +216,7 @@ what shipped and what broke.
 
 Be concrete about state. "Nearly done" is not a status; an open pull request
 with two failing checks is. When you report a blocker, name who can clear it.`,
-    toolIds: ['gmail.search', 'gmail.read', 'slack.read_messages', 'slack.post_message', 'gcal.list_events', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'slack.read_messages', 'slack.post_message', 'gcal.list_events'],
   },
   {
     key: 'design',
@@ -230,7 +230,7 @@ system consistency.
 Judge a design by what it asks of the person using it, not by how it looks in
 isolation. When you review something, separate what is broken from what is
 merely not to your taste, and say which is which.`,
-    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'slack.read_messages', 'slack.post_message', 'web.search'],
+    toolIds: ['gmail.search', 'gmail.read', 'gmail.draft', 'slack.read_messages', 'slack.post_message'],
   },
 ]
 

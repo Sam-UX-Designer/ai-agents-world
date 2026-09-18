@@ -9,7 +9,7 @@ import { ActiveAgents, CommandBar, TaskInProgress, World } from '@/components/wo
 import { AgentPanel } from '@/components/ui/AgentPanel'
 import { TaskDetail } from '@/components/ui/TaskDetail'
 import { ApprovalSheet } from '@/components/ui/ApprovalSheet'
-import { Results } from '@/components/ui/Results'
+import { Answer } from '@/components/ui/Answer'
 
 /**
  * Home - the Agent World.
@@ -25,9 +25,6 @@ export default function HomePage() {
 
   const socket = useRef<WorldSocket | null>(null)
   const selectedAgent = useWorld((s) => s.selectedAgent)
-  const summary = useWorld((s) => s.summary)
-  const goalId = useWorld((s) => s.goalId)
-  const goalState = useWorld((s) => s.goalState)
 
   useEffect(() => {
     api.agents().then(setAgents).catch(() => undefined)
@@ -64,8 +61,6 @@ export default function HomePage() {
 
   const onStarted = useCallback((id: string) => socket.current?.connect(id), [])
 
-  const showResult = Boolean(summary) || goalState === 'failed'
-
   return (
     <main>
       <World agents={agents} />
@@ -73,11 +68,11 @@ export default function HomePage() {
       <Chrome user={me ? { name: me.user.name, plan: 'Pro plan' } : null} />
 
       {/*
-        Right side: the live agent roster while work is in flight, the result
-        once it is done. The roster is the reference's panel - a separate task
-        breakdown alongside it would be a dashboard section the design does not
-        have, and the same information already reaches the user through the
-        agents themselves and the progress card.
+        Right side: who is working, or the one agent you asked about. The
+        roster is the reference's panel - a separate task breakdown alongside
+        it would be a dashboard section the design does not have, and the same
+        information already reaches the user through the agents themselves and
+        the progress card.
       */}
       {selectedAgent ? (
         /*
@@ -93,18 +88,29 @@ export default function HomePage() {
         <div className="agent-dock">
           <AgentPanel agents={agents} />
         </div>
-      ) : showResult ? (
-        <div className="world-dock" aria-live="polite">
-          <Results />
-        </div>
       ) : (
         <ActiveAgents agents={agents} />
       )}
 
       {taskOpen && <TaskDetail agents={agents} onClose={() => setTaskOpen(false)} />}
 
-      <TaskInProgress onOpen={() => setTaskOpen(true)} />
-      <CommandBar onStarted={onStarted} />
+      {/*
+        The bottom of the screen, as one column.
+
+        The reply sits with the thing that was typed into, not off in the rail
+        - the rail keeps showing who is working, which is the question the
+        roster answers and the answer does not.
+
+        The progress card is in here too. On a wide screen it pulls itself out
+        to the bottom-right corner where it has always been; on a phone there
+        is no corner to spare, so it stays in the column and the three panels
+        stack instead of landing on top of each other.
+      */}
+      <div className="composer">
+        <TaskInProgress onOpen={() => setTaskOpen(true)} />
+        <Answer />
+        <CommandBar onStarted={onStarted} />
+      </div>
       <ApprovalSheet />
     </main>
   )

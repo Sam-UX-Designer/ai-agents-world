@@ -430,3 +430,94 @@ test('"don\'t ask again" never attaches to a deletion', async () => {
     'even asking to remember it, a deletion never becomes a standing grant',
   )
 })
+
+/*
+ * The two failures behind "I sent a prompt and nothing came back".
+ *
+ * Neither had a test, which is why both shipped. One made a brand-new
+ * workspace unable to plan anything at all; the other left the reason for a
+ * failure in the database while the screen showed a calm 0%.
+ */
+
+test('a workspace with nothing connected can still be given work', async () => {
+  const { createPlan } = await import('../orchestrator/planner.js')
+
+  let prompt = ''
+  const client = {
+    messages: {
+      parse: async (body: { messages: { content: string }[] }) => {
+        prompt = body.messages[0]?.content ?? ''
+        return {
+          parsed_output: {
+            interpretation: 'Answer the question.',
+            tasks: [
+              { id: 't1', title: 'Answer', description: 'Explain it', agentKey: 'general', dependsOn: [] },
+            ],
+            unsupported: [],
+          },
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 10, output_tokens: 5 },
+        }
+      },
+    },
+  } as unknown as Anthropic
+
+  const result = await createPlan(client, {
+    goal: 'Explain what a design system is',
+    connectedProviders: [],
+    timezone: 'Asia/Kolkata',
+  })
+
+  // The roster used to list only agents holding a connected tool. With nothing
+  // connected that is nobody, so the Orchestrator was handed an empty roster
+  // and every goal came back "could not find any work to do" - including ones
+  // needing no integration at all.
+  assert.ok(
+    prompt.includes('general - General Agent'),
+    'the General Agent is offered even with no integrations connected',
+  )
+  assert.ok(
+    !prompt.includes('No agents are available'),
+    'the roster is never empty',
+  )
+  assert.ok(
+    prompt.includes('none connected'),
+    'and the Orchestrator is told which agents have no tools, rather than being misled',
+  )
+  assert.equal(result.ok, true, 'the plan is usable')
+})
+
+test('a goal that dies before planning tells the user why, in words', async () => {
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const goalId = await seedGoal(db, workspaceId, userId, 'Plan a product launch')
+
+  const bus = new EventBus(new PostgresEventStore())
+  const events = capture(bus, goalId)
+
+  const raw =
+    'Your credit balance is too low to access the Anthropic API. ' +
+    'Please go to Plans & Billing to upgrade or purchase credits.'
+
+  const client = {
+    messages: {
+      parse: async () => {
+        throw new Error(raw)
+      },
+    },
+  } as unknown as Anthropic
+
+  await runGoal({ client, bus }, { goalId, workspaceId, prompt: 'x', timezone: 'UTC' })
+
+  const [goal] = await db.select().from(schema.goals).where(eq(schema.goals.id, goalId))
+  assert.equal(goal?.state, 'failed')
+
+  const failure = events.find((e) => e.type === 'goal.state_changed' && e.state === 'failed')
+  assert.ok(failure, 'the screen is told the goal failed rather than being left at 0%')
+
+  const message = failure && 'error' in failure ? (failure.error ?? '') : ''
+  assert.match(message, /credits/i, 'and told what to do about it')
+  assert.ok(
+    !message.includes('Plans & Billing to upgrade or purchase'),
+    'in our words, not the provider\'s raw text',
+  )
+})

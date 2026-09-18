@@ -44,9 +44,6 @@ export const TOOL_CATALOGUE: readonly ToolSpec[] = [
   { id: 'gcal.find_free', label: 'Find free time', effect: 'analyse', requiresConnection: 'google', description: 'Find gaps in a time window.' },
   { id: 'gcal.create_event', label: 'Create an event', effect: 'external_write', requiresConnection: 'google', description: 'Create an event and invite attendees. Needs approval.' },
   { id: 'gcal.delete_event', label: 'Delete an event', effect: 'destructive', requiresConnection: 'google', description: 'Delete an event. Always needs approval.' },
-
-  // -------------------------------------------------------------- research --
-  { id: 'web.search', label: 'Search the web', effect: 'read', requiresConnection: null, description: 'Search the public web. No account needed.' },
 ]
 
 const BY_ID = new Map(TOOL_CATALOGUE.map((t) => [t.id, t]))
