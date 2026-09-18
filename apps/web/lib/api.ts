@@ -87,6 +87,25 @@ export interface IntegrationInfo {
   }[]
 }
 
+/** One past goal, with everything the History list needs to render a row. */
+export interface HistoryEntry {
+  id: string
+  prompt: string
+  state: string
+  summary: string | null
+  error: string | null
+  createdAt: string
+  completedAt: string | null
+  /** Null while the goal is still running. */
+  durationMs: number | null
+  agentKeys: string[]
+  toolIds: string[]
+  taskCount: number
+  tasksDone: number
+  taskTitles: string[]
+  artifacts: { id: string; title: string; kind: string }[]
+}
+
 export const api = {
   me: () => request<Me>('/me'),
 
@@ -137,6 +156,9 @@ export const api = {
 
   goals: () =>
     request<{ id: string; prompt: string; state: string; createdAt: string }[]>('/goals'),
+
+  history: (days: number | null) =>
+    request<HistoryEntry[]>(`/history${days ? `?days=${days}` : ''}`),
 
   goal: (id: string) =>
     request<{

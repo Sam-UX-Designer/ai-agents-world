@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import {
@@ -524,6 +524,126 @@ export async function registerRoutes(
         .where(eq(schema.goals.workspaceId, ctx.workspaceId))
         .orderBy(desc(schema.goals.createdAt))
         .limit(50)
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  /**
+   * History: past goals with everything the list needs to render a row.
+   *
+   * Three queries regardless of how many goals come back, rather than one per
+   * goal for its agents and another for its tools. At fifty rows that is the
+   * difference between three round trips and a hundred and fifty.
+   *
+   * Every field is stored fact. Duration is completedAt minus createdAt and is
+   * null while a goal is still running - an in-flight goal has no duration yet,
+   * and inventing one would be the first lie on a screen whose whole job is to
+   * be the record.
+   */
+  app.get('/history', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const days = Number((request.query as { days?: string }).days)
+      const since =
+        Number.isFinite(days) && days > 0
+          ? new Date(Date.now() - days * 86_400_000)
+          : null
+
+      const goals = await db()
+        .select({
+          id: schema.goals.id,
+          prompt: schema.goals.prompt,
+          state: schema.goals.state,
+          summary: schema.goals.summary,
+          error: schema.goals.error,
+          createdAt: schema.goals.createdAt,
+          completedAt: schema.goals.completedAt,
+        })
+        .from(schema.goals)
+        .where(
+          since
+            ? and(
+                eq(schema.goals.workspaceId, ctx.workspaceId),
+                gte(schema.goals.createdAt, since),
+              )
+            : eq(schema.goals.workspaceId, ctx.workspaceId),
+        )
+        .orderBy(desc(schema.goals.createdAt))
+        .limit(100)
+
+      if (goals.length === 0) return []
+
+      const ids = goals.map((g) => g.id)
+
+      const [taskRows, toolRows, artifactRows] = await Promise.all([
+        db()
+          .select({
+            goalId: schema.tasks.goalId,
+            agentKey: schema.tasks.agentKey,
+            title: schema.tasks.title,
+            state: schema.tasks.state,
+          })
+          .from(schema.tasks)
+          .where(inArray(schema.tasks.goalId, ids)),
+        // Tool calls hang off a run, and a run knows its goal.
+        db()
+          .select({ goalId: schema.agentRuns.goalId, toolId: schema.toolCalls.toolId })
+          .from(schema.toolCalls)
+          .innerJoin(schema.agentRuns, eq(schema.toolCalls.runId, schema.agentRuns.id))
+          .where(inArray(schema.agentRuns.goalId, ids)),
+        db()
+          .select({
+            goalId: schema.artifacts.goalId,
+            id: schema.artifacts.id,
+            title: schema.artifacts.title,
+            kind: schema.artifacts.kind,
+          })
+          .from(schema.artifacts)
+          .where(inArray(schema.artifacts.goalId, ids)),
+      ])
+
+      /** Group rows by goal, preserving first-seen order. */
+      const group = <T, K>(rows: T[], goalId: (r: T) => string, pick: (r: T) => K) => {
+        const out = new Map<string, K[]>()
+        for (const row of rows) {
+          const list = out.get(goalId(row)) ?? []
+          list.push(pick(row))
+          out.set(goalId(row), list)
+        }
+        return out
+      }
+
+      const tasksByGoal = group(taskRows, (r) => r.goalId, (r) => r)
+      const toolsByGoal = group(toolRows, (r) => r.goalId, (r) => r.toolId)
+      const artifactsByGoal = group(artifactRows, (r) => r.goalId, (r) => ({
+        id: r.id,
+        title: r.title,
+        kind: r.kind,
+      }))
+
+      return goals.map((goal) => {
+        const tasks = tasksByGoal.get(goal.id) ?? []
+        return {
+          id: goal.id,
+          prompt: goal.prompt,
+          state: goal.state,
+          summary: goal.summary,
+          error: goal.error,
+          createdAt: goal.createdAt,
+          completedAt: goal.completedAt,
+          durationMs:
+            goal.completedAt
+              ? goal.completedAt.getTime() - goal.createdAt.getTime()
+              : null,
+          agentKeys: [...new Set(tasks.map((t) => t.agentKey))],
+          toolIds: [...new Set(toolsByGoal.get(goal.id) ?? [])],
+          taskCount: tasks.length,
+          tasksDone: tasks.filter((t) => t.state === 'succeeded').length,
+          taskTitles: tasks.map((t) => t.title),
+          artifacts: artifactsByGoal.get(goal.id) ?? [],
+        }
+      })
     } catch (err) {
       return respondWithError(reply, err)
     }

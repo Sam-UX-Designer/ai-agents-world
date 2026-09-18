@@ -116,6 +116,9 @@ export async function GET(
       )
 
     case '/goals':
+    // Nothing has ever run here - there is no database - so the History
+    // screen shows its "no history yet" state, which is the truth.
+    case '/history':
       return json([])
 
     case '/approvals':

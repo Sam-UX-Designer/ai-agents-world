@@ -112,7 +112,7 @@ test('the connector catalogue marks unconfigured providers as blocked', async ()
 })
 
 test('every data route refuses an unauthenticated caller', async () => {
-  for (const url of ['/connections', '/goals', '/approvals', '/integrations']) {
+  for (const url of ['/connections', '/goals', '/approvals', '/integrations', '/history']) {
     const res = await app.inject({ method: 'GET', url })
     assert.equal(res.statusCode, 401, `${url} must require a session`)
   }
@@ -310,6 +310,86 @@ test('the same email cannot register twice', async () => {
   await app.inject({ method: 'POST', url: '/auth/register', payload })
   const second = await app.inject({ method: 'POST', url: '/auth/register', payload })
   assert.equal(second.statusCode, 409)
+})
+
+/**
+ * History.
+ *
+ * The screen's whole job is to be the record, so the test that matters is
+ * that a goal still running reports no duration rather than a made-up one.
+ */
+test('history reports a real duration, and none for a goal still running', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const cookie = await cookieFor(userId, workspaceId)
+
+  // Finishes immediately here - the Claude client is stubbed - so this is the
+  // completed case.
+  const created = await app.inject({
+    method: 'POST',
+    url: '/goals',
+    headers: { cookie },
+    payload: { prompt: 'Summarise last week', timezone: 'UTC' },
+  })
+  // 202: accepted and run in the background, which is why closing the tab is
+  // harmless.
+  assert.equal(created.statusCode, 202, created.body)
+
+  // And one that has not finished, written directly so it stays that way.
+  await db.insert(schemaFor.goals).values({
+    workspaceId,
+    userId,
+    prompt: 'Still going',
+    state: 'executing',
+  })
+
+  const res = await app.inject({ method: 'GET', url: '/history', headers: { cookie } })
+  assert.equal(res.statusCode, 200)
+
+  const list = res.json() as {
+    prompt: string
+    durationMs: number | null
+    agentKeys: string[]
+    toolIds: string[]
+    artifacts: unknown[]
+  }[]
+
+  const running = list.find((e) => e.prompt === 'Still going')
+  assert.ok(running, 'the running goal is listed')
+  assert.equal(running.durationMs, null, 'an unfinished goal has no duration invented for it')
+
+  const done = list.find((e) => e.prompt === 'Summarise last week')
+  assert.ok(done, 'the finished goal is listed')
+  assert.ok(
+    typeof done.durationMs === 'number' && done.durationMs >= 0,
+    'a finished goal reports the time it actually took',
+  )
+  assert.ok(Array.isArray(done.agentKeys))
+  assert.ok(Array.isArray(done.toolIds))
+  assert.ok(Array.isArray(done.artifacts))
+})
+
+test('history never returns another workspace\'s goals', async () => {
+  const mine = await seedWorkspace(db)
+  const theirs = await seedWorkspace(db)
+
+  await app.inject({
+    method: 'POST',
+    url: '/goals',
+    headers: { cookie: await cookieFor(theirs.userId, theirs.workspaceId) },
+    payload: { prompt: 'Their private goal', timezone: 'UTC' },
+  })
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/history',
+    headers: { cookie: await cookieFor(mine.userId, mine.workspaceId) },
+  })
+
+  const list = res.json() as { prompt: string }[]
+  assert.ok(
+    !list.some((e) => e.prompt === 'Their private goal'),
+    'the tenant boundary holds on this route too',
+  )
 })
 
 test('a forged session cookie is refused', async () => {

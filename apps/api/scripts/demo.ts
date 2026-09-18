@@ -106,7 +106,7 @@ const planFor = (prompt: string) => {
     }
   }
 
-  if (has('revenue', 'spend', 'budget', 'cost', 'finance', 'insight', 'users', 'analytics')) {
+  if (has('revenue', 'spend', 'budget', 'cost', 'financ', 'insight', 'users', 'analytics')) {
     return {
       interpretation: 'Find what the numbers and the conversations say about our users.',
       tasks: [
