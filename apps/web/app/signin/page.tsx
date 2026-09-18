@@ -21,6 +21,9 @@ type Theme = 'dark' | 'light'
 
 const THEME_KEY = 'agents-world-theme'
 
+/** Something before an @, something after it, and a dot in the domain. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export default function SignInPage() {
   const router = useRouter()
 
@@ -29,6 +32,7 @@ export default function SignInPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -79,6 +83,22 @@ export default function SignInPage() {
 
   const submit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault()
+
+    /*
+     * Check the address ourselves before anything else.
+     *
+     * type="email" leaves this to the browser, which puts a native bubble
+     * over the next field reading "Please include an '@'..." - unstyled,
+     * mid-form, and gone the moment you look away. Typing a phone number in
+     * there is a common enough mistake to deserve a proper answer.
+     */
+    if (!EMAIL.test(email.trim())) {
+      setEmailError('Please enter a valid email address.')
+      setError(null)
+      return
+    }
+    setEmailError(null)
+
     setBusy('form')
     setError(null)
 
@@ -155,13 +175,29 @@ export default function SignInPage() {
           <label className="auth__field">
             <span>Email address</span>
             <input
-              type="email"
+              // Deliberately text, not email: the browser's own bubble cannot
+              // be styled or placed, and it fires before ours can.
+              type="text"
+              inputMode="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                // Clear as they correct it. Keeping the error on screen while
+                // someone fixes it is nagging, not helping.
+                if (emailError) setEmailError(null)
+              }}
               placeholder="you@company.com"
               autoComplete="email"
+              aria-invalid={emailError !== null}
+              aria-describedby={emailError ? 'email-error' : undefined}
+              data-invalid={emailError !== null}
               required
             />
+            {emailError && (
+              <span className="auth__fielderror" id="email-error" role="alert">
+                {emailError}
+              </span>
+            )}
           </label>
 
           {registering && (

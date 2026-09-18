@@ -112,7 +112,7 @@ test('the connector catalogue marks unconfigured providers as blocked', async ()
 })
 
 test('every data route refuses an unauthenticated caller', async () => {
-  for (const url of ['/connections', '/goals', '/approvals', '/integrations', '/history']) {
+  for (const url of ['/connections', '/goals', '/approvals', '/integrations', '/history', '/usage', '/agents/instructions']) {
     const res = await app.inject({ method: 'GET', url })
     assert.equal(res.statusCode, 401, `${url} must require a session`)
   }
@@ -390,6 +390,93 @@ test('history never returns another workspace\'s goals', async () => {
     !list.some((e) => e.prompt === 'Their private goal'),
     'the tenant boundary holds on this route too',
   )
+})
+
+/**
+ * Agent instructions.
+ *
+ * The one that matters is the last: an instruction the user saves has to
+ * actually reach the model, or the feature is a text box that does nothing.
+ */
+test('agent instructions save, come back, and clear when emptied', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const cookie = await cookieFor(userId, workspaceId)
+
+  const empty = await app.inject({ method: 'GET', url: '/agents/instructions', headers: { cookie } })
+  assert.deepEqual(empty.json(), {}, 'nothing saved to begin with')
+
+  const saved = await app.inject({
+    method: 'PUT',
+    url: '/agents/finance/instructions',
+    headers: { cookie },
+    payload: { instructions: 'Our quarter ends in March.' },
+  })
+  assert.equal(saved.statusCode, 200, saved.body)
+
+  const after = await app.inject({ method: 'GET', url: '/agents/instructions', headers: { cookie } })
+  assert.deepEqual(after.json(), { finance: 'Our quarter ends in March.' })
+
+  await app.inject({
+    method: 'PUT',
+    url: '/agents/finance/instructions',
+    headers: { cookie },
+    payload: { instructions: '   ' },
+  })
+  const cleared = await app.inject({ method: 'GET', url: '/agents/instructions', headers: { cookie } })
+  assert.deepEqual(cleared.json(), {}, 'emptying removes the row rather than storing blanks')
+})
+
+test('instructions cannot be saved for an agent that does not exist', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const res = await app.inject({
+    method: 'PUT',
+    url: '/agents/not-a-real-agent/instructions',
+    headers: { cookie: await cookieFor(userId, workspaceId) },
+    payload: { instructions: 'anything' },
+  })
+  assert.equal(res.statusCode, 404, 'a typo would otherwise write a row no run ever reads')
+})
+
+test("one workspace's agent instructions never reach another", async () => {
+  const mine = await seedWorkspace(db)
+  const theirs = await seedWorkspace(db)
+
+  await app.inject({
+    method: 'PUT',
+    url: '/agents/finance/instructions',
+    headers: { cookie: await cookieFor(theirs.userId, theirs.workspaceId) },
+    payload: { instructions: 'Their private policy' },
+  })
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/agents/instructions',
+    headers: { cookie: await cookieFor(mine.userId, mine.workspaceId) },
+  })
+  assert.deepEqual(res.json(), {})
+})
+
+test('usage counts real token spend, never an estimate', async () => {
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const cookie = await cookieFor(userId, workspaceId)
+
+  const before = await app.inject({ method: 'GET', url: '/usage', headers: { cookie } })
+  assert.equal(before.statusCode, 200)
+  const fresh = before.json() as { creditsUsed: number; goalsRun: number; agentMinutes: number }
+  assert.equal(fresh.creditsUsed, 0, 'a workspace that has done nothing has used nothing')
+  assert.equal(fresh.goalsRun, 0)
+
+  await app.inject({
+    method: 'POST',
+    url: '/goals',
+    headers: { cookie },
+    payload: { prompt: 'Do a thing', timezone: 'UTC' },
+  })
+
+  const after = await app.inject({ method: 'GET', url: '/usage', headers: { cookie } })
+  const used = after.json() as { goalsRun: number; tokensPerCredit: number }
+  assert.equal(used.goalsRun, 1, 'the goal just run is counted')
+  assert.equal(used.tokensPerCredit, 1000, 'the conversion is stated, not left to the client')
 })
 
 test('a forged session cookie is refused', async () => {

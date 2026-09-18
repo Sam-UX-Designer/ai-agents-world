@@ -301,7 +301,15 @@ html, body {
   position: fixed;
   top: var(--edge);
   right: var(--edge);
-  z-index: 30;
+  /*
+   * Above the docked panels, not level with them.
+   *
+   * This is a stacking context, so the popovers inside it are capped by this
+   * number however high their own z-index is - at 30 the account menu opened
+   * *behind* the agent panel at 40. Anything anchored to a control has to
+   * outrank what it opens over.
+   */
+  z-index: 60;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -2457,5 +2465,440 @@ html, body {
       inset 0 1px 0 rgb(255 255 255 / 0.13),
       0 -12px 40px rgb(2 6 14 / 0.55),
       0 24px 70px rgb(2 6 14 / 0.7);
+  }
+}
+
+/* ===========================================================================
+   Sign-in field errors
+   =========================================================================== */
+
+.auth__field input[data-invalid="true"] {
+  border-color: var(--color-danger);
+  background: rgb(251 113 133 / 0.07);
+}
+.auth__field input[data-invalid="true"]:focus { border-color: var(--color-danger); }
+
+.auth__fielderror {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-danger);
+}
+
+/* ===========================================================================
+   Working agents
+   ---------------------------------------------------------------------------
+   A sustained signal for the whole time an agent is busy, distinct from the
+   1.4s dispatch animation: the dispatch says "this one was chosen", this says
+   "this one is still going".
+   =========================================================================== */
+
+/* The card lifts and settles, slowly, the way something alive does. */
+.marker[data-state="working"],
+.marker[data-state="planning"],
+.marker[data-state="spawning"] {
+  border-color: rgb(62 155 255 / 0.5);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.13),
+    0 0 0 1px rgb(62 155 255 / 0.28),
+    0 8px 28px rgb(20 90 190 / 0.4);
+  animation: agent-bob 2.6s ease-in-out infinite;
+}
+
+@keyframes agent-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* The station card is positioned by its side, so the bob has to compose with
+   whatever transform that side already set rather than replace it. */
+.station[data-side="left"] .marker[data-state="working"],
+.station[data-side="right"] .marker[data-state="working"],
+.station[data-side="left"] .marker[data-state="planning"],
+.station[data-side="right"] .marker[data-state="planning"],
+.station[data-side="left"] .marker[data-state="spawning"],
+.station[data-side="right"] .marker[data-state="spawning"] {
+  animation-name: agent-bob-flat;
+}
+@keyframes agent-bob-flat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* The robot on the station breathes with its card. */
+.station__mascot[data-state="working"],
+.station__mascot[data-state="planning"],
+.station__mascot[data-state="spawning"] {
+  animation: mascot-work 2.6s ease-in-out infinite;
+}
+
+@keyframes mascot-work {
+  0%, 100% { transform: translate(-50%, 0) scale(1); filter: none; }
+  50% {
+    transform: translate(-50%, -5px) scale(1.04);
+    filter: drop-shadow(0 0 14px rgb(62 155 255 / 0.55));
+  }
+}
+
+/* The placeholder glow, for stations whose mascot has not been uploaded yet.
+   It stands in for the robot, so it has to show the same thing. */
+.station__glow[data-state="working"],
+.station__glow[data-state="planning"],
+.station__glow[data-state="spawning"] {
+  animation: mascot-work 2.6s ease-in-out infinite;
+}
+
+/* A standing line from the hub for as long as the agent is working, under the
+   travelling dispatch rather than instead of it. */
+.routes__live {
+  stroke-width: 2;
+  stroke-dasharray: 5 9;
+  opacity: 0.34;
+  filter: drop-shadow(0 0 5px currentColor);
+  animation: route-crawl 1.6s linear infinite;
+}
+@keyframes route-crawl { to { stroke-dashoffset: -14; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .marker[data-state="working"],
+  .station__mascot[data-state="working"],
+  .routes__live { animation: none; }
+}
+
+/* ===========================================================================
+   Task detail
+   =========================================================================== */
+
+.taskcard { cursor: pointer; border: 1px solid var(--glass-border); text-align: left; }
+.taskcard:hover { filter: brightness(1.08); }
+
+.taskdetail {
+  position: fixed;
+  z-index: 35;
+  right: var(--edge);
+  bottom: calc(var(--edge) + 110px);
+  width: min(370px, calc(100vw - 2 * var(--edge)));
+  max-height: min(60dvh, 520px);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  animation: detailin 220ms cubic-bezier(.22,.9,.3,1);
+}
+
+.taskdetail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.taskdetail__head h2 { margin: 0; font-size: 15px; font-weight: 640; }
+.taskdetail__head button {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  border: 0; border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.taskdetail__head button:hover { background: rgb(255 255 255 / 0.16); }
+
+.taskdetail__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 14px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%);
+}
+.taskdetail__body::-webkit-scrollbar { width: 6px; }
+.taskdetail__body::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.16); border-radius: 999px; }
+.taskdetail__body > section + section { margin-top: 16px; }
+
+.taskdetail__label {
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.taskdetail__prompt {
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+  background: rgb(62 155 255 / 0.1);
+  border: 1px solid rgb(62 155 255 / 0.2);
+}
+.taskdetail__text { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-dim); }
+
+.taskdetail__tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.taskdetail__tasks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+.taskdetail__tasks li[data-state="running"] {
+  background: rgb(62 155 255 / 0.12);
+  border-color: rgb(62 155 255 / 0.28);
+}
+.taskdetail__tasks li[data-state="failed"] { border-color: rgb(251 113 133 / 0.3); }
+
+.taskdetail__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.taskdetail__who strong { font-size: 12.5px; font-weight: 580; }
+.taskdetail__who em { font-size: 11.5px; font-style: normal; color: var(--color-text-dim); }
+.taskdetail__state {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 560;
+  color: var(--color-accent-soft);
+}
+
+.taskdetail__activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.taskdetail__activity li { display: flex; flex-direction: column; gap: 1px; font-size: 11.5px; }
+.taskdetail__activity strong { font-weight: 570; }
+.taskdetail__activity em { font-style: normal; color: var(--color-text-dim); }
+.taskdetail__activity li[data-outcome="failed"] em,
+.taskdetail__activity li[data-outcome="denied"] em { color: var(--color-warn); }
+
+.taskdetail__summary { margin: 0; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
+.taskdetail__failed {
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-danger);
+  background: rgb(251 113 133 / 0.1);
+  border: 1px solid rgb(251 113 133 / 0.22);
+}
+
+/* ===========================================================================
+   Top-right popovers
+   =========================================================================== */
+
+.iconbtn__dot {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--color-warn);
+  border: 2px solid var(--color-ink-900);
+}
+.iconbtn { position: relative; }
+.iconbtn--avatar { cursor: pointer; }
+
+.pop {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 50;
+  width: 300px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  animation: detailin 180ms cubic-bezier(.22,.9,.3,1);
+}
+
+.pop__head {
+  margin: 0 0 8px;
+  padding: 0 2px;
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+.pop__empty { margin: 0; padding: 10px 2px; font-size: 12.5px; color: var(--color-text-dim); }
+
+.pop__search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px;
+  height: 38px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  color: var(--color-text-dim);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.11);
+}
+.pop__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.pop__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.pop__list button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.pop__list button:hover { background: rgb(255 255 255 / 0.08); }
+.pop__list strong {
+  font-size: 12.5px;
+  font-weight: 550;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pop__list em { font-size: 11px; font-style: normal; color: var(--color-text-dim); }
+
+.pop__notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.pop__notes li {
+  padding: 10px 11px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-text-dim);
+  background: rgb(255 255 255 / 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pop__notes li[data-tone="warn"] { border-left-color: var(--color-warn); }
+.pop__notes li[data-tone="bad"] { border-left-color: var(--color-danger); }
+.pop__notes strong { font-size: 12.5px; font-weight: 600; }
+.pop__notes em { font-size: 11.5px; font-style: normal; line-height: 1.45; color: var(--color-text-dim); }
+
+/* ------------------------------------------------------ profile + usage -- */
+
+.pop--profile { width: 286px; }
+
+.pop__who {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 2px 12px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+.pop__avatar {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  font-size: 14px; font-weight: 650;
+  color: #fff;
+  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
+}
+.pop__who span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pop__who strong { font-size: 13.5px; font-weight: 600; }
+.pop__who em { font-size: 11.5px; font-style: normal; color: var(--color-accent-soft); }
+
+.usage { padding: 12px 2px 2px; }
+
+.usage__figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.usage__figures dt {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--color-text-dim);
+}
+.usage__figures dd { margin: 3px 0 0; font-size: 15px; font-weight: 640; }
+
+/* Activity, not a quota - each square is a goal, lighter ones finished. */
+.usage__grid {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 3px;
+}
+.usage__cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.06);
+}
+.usage__cell[data-level="ran"] { background: rgb(62 155 255 / 0.45); }
+.usage__cell[data-level="done"] { background: var(--color-accent); }
+
+.usage__legend { margin: 8px 0 0; font-size: 11px; color: var(--color-text-dim); }
+
+.pop__out {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 0;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0 0 10px 10px;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.pop__out:hover { background: rgb(251 113 133 / 0.1); color: var(--color-danger); }
+.pop__out:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ===========================================================================
+   Agent instructions editor
+   =========================================================================== */
+
+.instr { display: grid; gap: 7px; }
+.instr__label { font-size: 11px; font-weight: 600; color: var(--color-text-dim); }
+
+.instr__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+  color: var(--color-text);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  outline: 0;
+}
+.instr__input:focus { border-color: var(--color-accent); }
+.instr__input::placeholder { color: var(--color-text-dim); opacity: .7; }
+
+.instr__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.instr__hint { font-size: 11px; color: var(--color-text-dim); }
+.instr__save { padding: 7px 15px; font-size: 12px; }
+.instr__error { margin: 0; font-size: 11.5px; color: var(--color-danger); }
+
+@media (max-width: 900px) {
+  .pop { width: min(300px, calc(100vw - 2 * var(--edge))); }
+  .taskdetail {
+    left: var(--edge);
+    right: var(--edge);
+    width: auto;
+    bottom: calc(
+      max(var(--edge), env(safe-area-inset-bottom))
+      + var(--nav-h) + var(--cmd-h) + 2 * var(--gap)
+    );
+    background: var(--frost-grain), linear-gradient(
+      168deg, rgba(20, 32, 50, 0.96) 0%, rgba(10, 18, 31, 0.98) 100%
+    );
   }
 }

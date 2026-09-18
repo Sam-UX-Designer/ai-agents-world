@@ -85,6 +85,7 @@ function Routes({
 }) {
   const routes = useWorld((s) => s.routes)
   const clearRoute = useWorld((s) => s.clearRoute)
+  const agentStates = useWorld((s) => s.agents)
   const goalId = useWorld((s) => s.goalId)
   const goalState = useWorld((s) => s.goalState)
   const orchestrator = useWorld((s) => s.agents.orchestrator)
@@ -113,6 +114,28 @@ function Routes({
       )}
 
       <svg className="routes__svg">
+        {/*
+          A standing line for as long as an agent is actually working, under
+          the dispatch pulse rather than instead of it. The dispatch says "this
+          one was chosen"; this says "this one is still going", which is the
+          question a user has ninety seconds later.
+        */}
+        {agents.map((agent) => {
+          const state = agentStates[agent.key]?.state
+          if (agent.key === 'orchestrator') return null
+          if (!state || !['planning', 'spawning', 'working'].includes(state)) return null
+
+          const to = pointOn(rect, agent.zone.station as [number, number])
+          return (
+            <line
+              key={`live-${agent.key}`}
+              className="routes__live"
+              x1={hub.left} y1={hub.top} x2={to.left} y2={to.top}
+              stroke={agent.accent}
+            />
+          )
+        })}
+
         {routes.map((route) => {
           const agent = agents.find((a) => a.key === route.agentKey)
           if (!agent) return null
@@ -183,7 +206,8 @@ function Markers({
       {agents.map((agent) => {
         const view = agentStates[agent.key]
         const { left, top } = pointOn(rect, agent.zone.station as [number, number])
-        const busy = ['planning', 'spawning', 'working'].includes(view?.state ?? 'idle')
+        const state = view?.state ?? 'idle'
+        const busy = ['planning', 'spawning', 'working'].includes(state)
         const primary = agent.key === 'orchestrator'
         // A label centred on a station near the right edge runs under the
         // panels. Flipping which side of the anchor it extends from keeps the
@@ -296,7 +320,7 @@ export function ActiveAgents({ agents }: { agents: readonly AgentInfo[] }) {
  * recognise what they started, and there is nowhere else on this screen that
  * the prompt survives after the input clears.
  */
-export function TaskInProgress() {
+export function TaskInProgress({ onOpen }: { onOpen: () => void }) {
   const goalId = useWorld((s) => s.goalId)
   const goalPrompt = useWorld((s) => s.goalPrompt)
   const goalState = useWorld((s) => s.goalState)
@@ -309,7 +333,12 @@ export function TaskInProgress() {
   const percent = list.length > 0 ? Math.round((done / list.length) * 100) : 0
 
   return (
-    <div className="taskcard glass" role="status">
+    <button
+      className="taskcard glass"
+      onClick={onOpen}
+      aria-expanded={false}
+      aria-label="Show what is running"
+    >
       <span className="taskcard__icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
           <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.7" />
@@ -325,7 +354,7 @@ export function TaskInProgress() {
         </span>
       </span>
       <span className="taskcard__pct">{percent}%</span>
-    </div>
+    </button>
   )
 }
 

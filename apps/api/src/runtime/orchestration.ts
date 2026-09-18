@@ -9,6 +9,7 @@ import {
   type PlannedTask,
   type TaskState,
 } from '@agents-world/shared'
+import { getInstructions } from '../agents/instructions.js'
 import { getWorkspace } from '../auth/workspaces.js'
 import { db, schema } from '../db/client.js'
 import { createPlan } from '../orchestrator/planner.js'
@@ -16,6 +17,7 @@ import { synthesise } from '../orchestrator/synthesis.js'
 import { connectedProviders } from '../tools/connections.js'
 import type { EventBus } from '../realtime/bus.js'
 import { executeTask, type RunOutcome } from './executor.js'
+import { explainFailure } from './failures.js'
 import { buildToolbelt } from './toolbelt.js'
 
 /**
@@ -96,7 +98,9 @@ export async function runGoal(
 
     await executePlan(deps, input, planResult.waves, taskIds)
   } catch (err) {
-    await failGoal(deps, base, err instanceof Error ? err.message : String(err))
+    // The raw text goes to the log; the screen gets a sentence.
+    console.error('[orchestration] goal failed', base.goalId, err)
+    await failGoal(deps, base, explainFailure(err).message)
   }
 }
 
@@ -260,6 +264,9 @@ async function runTask(
   const toolbelt = buildToolbelt(agent, providers)
   const dependencyResults = await loadDependencyResults(task, taskIds)
   const priorRun = await loadPausedRun(taskId)
+  // Read fresh every dispatch: an instruction saved a moment ago must apply
+  // to this run, not the one after it.
+  const customInstructions = await getInstructions(input.workspaceId, agent.key)
 
   let outcome: RunOutcome
   try {
@@ -267,6 +274,7 @@ async function runTask(
       deps.client,
       {
         agent,
+        customInstructions,
         toolbelt,
         context: { workspaceId: input.workspaceId, timezone: input.timezone },
         taskDescription: task.description,
@@ -388,8 +396,11 @@ async function runTask(
   }
 
   if (outcome.status === 'failed') {
+    // The run keeps the raw error for debugging; the island and History get
+    // the readable one.
+    console.error('[orchestration] task failed', taskId, outcome.error)
     await completeRun(run.id, 'error', null, outcome.error, outcome.usage)
-    await markTaskFailed(bus, base, taskId, agent.key, outcome.error)
+    await markTaskFailed(bus, base, taskId, agent.key, explainFailure(outcome.error).message)
     return 'failed'
   }
 

@@ -32,6 +32,13 @@ const MAX_ITERATIONS = 20
 
 export interface ExecuteInput {
   readonly agent: AgentDefinition
+  /**
+   * What this workspace has told this agent, on top of its built-in
+   * expertise. Kept separate rather than concatenated so the registry's
+   * instructions stay byte-stable and keep their cache hit - see the two
+   * system blocks below.
+   */
+  readonly customInstructions?: string | null
   readonly toolbelt: readonly ToolBinding[]
   readonly context: ToolContext
   /** What the Orchestrator asked this agent to do. */
@@ -132,6 +139,19 @@ export async function executeTask(
             // Byte-stable across every run of this agent, so the prefix caches.
             cache_control: { type: 'ephemeral' },
           },
+          // The workspace's own instructions, second so the block above keeps
+          // its cache hit when these change. Last word deliberately: a user
+          // saying "always answer in Tamil" should win over a general habit,
+          // but the permission gate is enforced in code and no instruction
+          // here can reach it.
+          ...(input.customInstructions?.trim()
+            ? [
+                {
+                  type: 'text' as const,
+                  text: `Additional instructions from this workspace:\n\n${input.customInstructions.trim()}`,
+                },
+              ]
+            : []),
         ],
         messages,
         tools: input.toolbelt.map((t) => t.definition),

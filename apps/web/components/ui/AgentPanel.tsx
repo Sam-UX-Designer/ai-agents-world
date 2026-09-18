@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentState } from '@agents-world/shared'
-import type { AgentInfo } from '@/lib/api'
+import { api, type AgentInfo } from '@/lib/api'
 import { useWorld } from '@/lib/store'
 
 /**
@@ -143,12 +143,13 @@ export function AgentPanel({ agents }: { agents: readonly AgentInfo[] }) {
       <Section title="Instructions">
         <p
           style={{
-            margin: 0, fontSize: 12, lineHeight: 1.55, color: 'var(--color-text-dim)',
-            whiteSpace: 'pre-wrap',
+            margin: '0 0 12px', fontSize: 12, lineHeight: 1.55,
+            color: 'var(--color-text-dim)', whiteSpace: 'pre-wrap',
           }}
         >
           {definition.instructions.split('\n\n')[0]}
         </p>
+        <CustomInstructions agentKey={definition.key} agentName={definition.name} />
       </Section>
 
       <Section title={`Tools (${definition.tools.length})`}>
@@ -273,3 +274,96 @@ export function Progress({
 
 const isAutonomous = (effect: string): boolean =>
   effect === 'read' || effect === 'analyse' || effect === 'draft'
+
+
+/**
+ * The workspace's own instructions for this agent.
+ *
+ * Added to what the agent already knows rather than replacing it, which is
+ * why it sits under the built-in description instead of on top of it. Saved
+ * to the workspace and read fresh on every dispatch, so the next run uses it.
+ */
+function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentName: string }) {
+  const [text, setText] = useState('')
+  const [saved, setSaved] = useState('')
+  const [state, setState] = useState<'loading' | 'idle' | 'saving' | 'done' | 'error'>('loading')
+  const [message, setMessage] = useState<string | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    let live = true
+    setState('loading')
+    api
+      .agentInstructions()
+      .then((all) => {
+        if (!live) return
+        const value = all[agentKey] ?? ''
+        setText(value)
+        setSaved(value)
+        setState('idle')
+      })
+      .catch(() => { if (live) setState('idle') })
+    return () => { live = false }
+  }, [agentKey])
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+
+  const save = useCallback(async () => {
+    setState('saving')
+    setMessage(null)
+    try {
+      await api.saveAgentInstructions(agentKey, text)
+      setSaved(text)
+      setState('done')
+      // Back to neutral, so "Saved" is a confirmation rather than a label.
+      timer.current = setTimeout(() => setState('idle'), 2200)
+    } catch (err) {
+      setState('error')
+      setMessage(err instanceof Error ? err.message : 'Could not save those instructions')
+    }
+  }, [agentKey, text])
+
+  if (state === 'loading') {
+    return <p className="instr__hint">Loading your instructions…</p>
+  }
+
+  const dirty = text !== saved
+
+  return (
+    <div className="instr">
+      <label className="instr__label" htmlFor={`instr-${agentKey}`}>
+        Your instructions for {agentName}
+      </label>
+      <textarea
+        id={`instr-${agentKey}`}
+        className="instr__input"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={4}
+        maxLength={4000}
+        placeholder={`e.g. Always write in British English. Our quarter ends in March.`}
+      />
+
+      <div className="instr__foot">
+        <span className="instr__hint">
+          {state === 'done'
+            ? 'Saved. The next run will use it.'
+            : dirty
+              ? 'Not saved yet'
+              : text
+                ? 'Used on every run'
+                : 'Optional'}
+        </span>
+        <button
+          className="btn btn--primary instr__save"
+          onClick={() => void save()}
+          disabled={!dirty || state === 'saving'}
+        >
+          {state === 'saving' ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {message && <p role="alert" className="instr__error">{message}</p>}
+    </div>
+  )
+}

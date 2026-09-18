@@ -16,6 +16,7 @@ import {
   type ProviderDefinition,
   type ProviderStatus,
 } from '@agents-world/shared'
+import { getInstructions, listInstructions, MAX_INSTRUCTION_LENGTH, setInstructions } from '../agents/instructions.js'
 import { AuthError, login, MIN_PASSWORD_LENGTH, register } from '../auth/password.js'
 import { issueSession, revokeSession, SESSION_COOKIE } from '../auth/sessions.js'
 import { completeSignIn, resolveUser, startSignIn } from '../auth/signin.js'
@@ -644,6 +645,118 @@ export async function registerRoutes(
           artifacts: artifactsByGoal.get(goal.id) ?? [],
         }
       })
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  // ------------------------------------------------ agent instructions --
+
+  /** Every agent's workspace instructions, keyed by agent. */
+  app.get('/agents/instructions', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      return await listInstructions(ctx.workspaceId)
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  app.put('/agents/:key/instructions', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const { key } = request.params as { key: string }
+
+      // Only agents that exist. A typo would otherwise write a row that never
+      // reaches a run, and look like the feature silently not working.
+      if (!AGENT_REGISTRY.some((a) => a.key === key)) {
+        return reply.status(404).send({ error: 'Unknown agent' })
+      }
+
+      const body = z
+        .object({ instructions: z.string().max(MAX_INSTRUCTION_LENGTH) })
+        .safeParse(request.body)
+
+      if (!body.success) {
+        return reply.status(400).send({
+          error: `Instructions must be ${MAX_INSTRUCTION_LENGTH} characters or fewer.`,
+        })
+      }
+
+      await setInstructions(ctx.workspaceId, key, body.data.instructions)
+      return { saved: true }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  // ------------------------------------------------------------- usage --
+
+  /**
+   * What this workspace has spent this month.
+   *
+   * Counted from agent_runs, which records tokens per run, and from goals -
+   * both stored facts. Nothing here is estimated: a usage meter that guesses
+   * is worse than no meter, because a person will budget against it.
+   */
+  app.get('/usage', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+
+      const now = new Date()
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+
+      const [runs, goals] = await Promise.all([
+        db()
+          .select({
+            inputTokens: schema.agentRuns.inputTokens,
+            outputTokens: schema.agentRuns.outputTokens,
+            startedAt: schema.agentRuns.startedAt,
+            completedAt: schema.agentRuns.completedAt,
+          })
+          .from(schema.agentRuns)
+          .where(
+            and(
+              eq(schema.agentRuns.workspaceId, ctx.workspaceId),
+              gte(schema.agentRuns.startedAt, monthStart),
+            ),
+          ),
+        db()
+          .select({ id: schema.goals.id, state: schema.goals.state })
+          .from(schema.goals)
+          .where(
+            and(
+              eq(schema.goals.workspaceId, ctx.workspaceId),
+              gte(schema.goals.createdAt, monthStart),
+            ),
+          ),
+      ])
+
+      const inputTokens = runs.reduce((n, r) => n + r.inputTokens, 0)
+      const outputTokens = runs.reduce((n, r) => n + r.outputTokens, 0)
+
+      // Agent time is wall-clock across finished runs. Runs overlap when waves
+      // dispatch in parallel, so this is time worked, not elapsed - which is
+      // the number that answers "how much did my workforce do".
+      const agentMs = runs.reduce(
+        (ms, r) =>
+          r.completedAt ? ms + (r.completedAt.getTime() - r.startedAt.getTime()) : ms,
+        0,
+      )
+
+      return {
+        monthStart: monthStart.toISOString(),
+        inputTokens,
+        outputTokens,
+        // One credit = one thousand tokens. Stated in the response so the
+        // client never invents its own conversion.
+        creditsUsed: Math.round((inputTokens + outputTokens) / 1000),
+        tokensPerCredit: 1000,
+        agentMinutes: Math.round(agentMs / 60_000),
+        goalsRun: goals.length,
+        goalsCompleted: goals.filter((g) => g.state === 'completed').length,
+        plan: 'Pro plan',
+      }
     } catch (err) {
       return respondWithError(reply, err)
     }

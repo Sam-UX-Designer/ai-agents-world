@@ -15,6 +15,13 @@
       "when": 1789717799734,
       "tag": "0001_auth_password_and_nullable_oauth_state",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789737484171,
+      "tag": "0002_agent_instructions",
+      "breakpoints": true
     }
   ]
 }

@@ -121,6 +121,23 @@ export async function GET(
     case '/history':
       return json([])
 
+    case '/agents/instructions':
+      // No workspace, so no saved instructions. Saving needs the API.
+      return json({})
+
+    case '/usage':
+      return json({
+        monthStart: new Date().toISOString(),
+        inputTokens: 0,
+        outputTokens: 0,
+        creditsUsed: 0,
+        tokensPerCredit: 1000,
+        agentMinutes: 0,
+        goalsRun: 0,
+        goalsCompleted: 0,
+        plan: 'Preview',
+      })
+
     case '/approvals':
       return json([])
 

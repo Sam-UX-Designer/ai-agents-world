@@ -263,6 +263,28 @@ export const artifacts = pgTable(
 )
 
 /**
+ * A workspace's own instructions for an agent.
+ *
+ * Layered on top of the agent's built-in expertise rather than replacing it:
+ * the registry knows what a Finance Agent is for, and only this workspace
+ * knows that its quarter ends in March and that "the board deck" means a
+ * particular Google Doc. One row per agent per workspace, so two customers
+ * never see each other's.
+ */
+export const agentInstructions = pgTable(
+  'agent_instructions',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+    agentKey: text('agent_key').notNull(),
+    instructions: text('instructions').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('agent_instructions_workspace_agent').on(t.workspaceId, t.agentKey)],
+)
+
+/**
  * The append-only event log.
  *
  * Every frame the 3D world has ever been sent lives here. A client that

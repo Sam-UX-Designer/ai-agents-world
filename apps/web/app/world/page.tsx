@@ -7,6 +7,7 @@ import { useWorld } from '@/lib/store'
 import { Chrome } from '@/components/world/Chrome'
 import { ActiveAgents, CommandBar, TaskInProgress, World } from '@/components/world/World'
 import { AgentPanel } from '@/components/ui/AgentPanel'
+import { TaskDetail } from '@/components/ui/TaskDetail'
 import { ApprovalSheet } from '@/components/ui/ApprovalSheet'
 import { Results } from '@/components/ui/Results'
 
@@ -20,6 +21,7 @@ import { Results } from '@/components/ui/Results'
 export default function HomePage() {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [me, setMe] = useState<Me | null>(null)
+  const [taskOpen, setTaskOpen] = useState(false)
 
   const socket = useRef<WorldSocket | null>(null)
   const selectedAgent = useWorld((s) => s.selectedAgent)
@@ -99,7 +101,9 @@ export default function HomePage() {
         <ActiveAgents agents={agents} />
       )}
 
-      <TaskInProgress />
+      {taskOpen && <TaskDetail agents={agents} onClose={() => setTaskOpen(false)} />}
+
+      <TaskInProgress onOpen={() => setTaskOpen(true)} />
       <CommandBar onStarted={onStarted} />
       <ApprovalSheet />
     </main>

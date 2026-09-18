@@ -106,6 +106,19 @@ export interface HistoryEntry {
   artifacts: { id: string; title: string; kind: string }[]
 }
 
+/** What this workspace has spent this month. Every field is a counted fact. */
+export interface Usage {
+  monthStart: string
+  inputTokens: number
+  outputTokens: number
+  creditsUsed: number
+  tokensPerCredit: number
+  agentMinutes: number
+  goalsRun: number
+  goalsCompleted: number
+  plan: string
+}
+
 export const api = {
   me: () => request<Me>('/me'),
 
@@ -159,6 +172,16 @@ export const api = {
 
   history: (days: number | null) =>
     request<HistoryEntry[]>(`/history${days ? `?days=${days}` : ''}`),
+
+  agentInstructions: () => request<Record<string, string>>('/agents/instructions'),
+
+  saveAgentInstructions: (agentKey: string, instructions: string) =>
+    request<{ saved: boolean }>(`/agents/${agentKey}/instructions`, {
+      method: 'PUT',
+      body: JSON.stringify({ instructions }),
+    }),
+
+  usage: () => request<Usage>('/usage'),
 
   goal: (id: string) =>
     request<{

@@ -288,3 +288,101 @@ test('workspace data cannot leak across the tenant boundary', async () => {
   assert.equal((await connections.listConnections(b.workspaceId)).length, 0)
   await assert.rejects(() => connections.accessTokenFor(b.workspaceId, 'google'))
 })
+
+/** Nothing is listening to progress in these two; the prompt is the subject. */
+const NO_REPORTS = { onToolCall: () => {}, onStep: () => {} }
+
+/**
+ * The claim the instructions feature rests on.
+ *
+ * A text box that saves but never reaches the model is worse than no text box
+ * at all: the user changes how an agent behaves, sees it save, and watches the
+ * agent carry on exactly as before. This captures the system blocks the
+ * executor actually sends.
+ */
+test('a workspace\'s instructions reach the model, after the built-in ones', async () => {
+  const { workspaceId } = await seedWorkspace(db)
+  const { setInstructions } = await import('../agents/instructions.js')
+  const { executeTask } = await import('../runtime/executor.js')
+  const { AGENT_REGISTRY } = await import('@agents-world/shared')
+
+  await setInstructions(workspaceId, 'finance', 'Our quarter ends in March.')
+
+  const { getInstructions } = await import('../agents/instructions.js')
+  const custom = await getInstructions(workspaceId, 'finance')
+  assert.equal(custom, 'Our quarter ends in March.', 'saved and read back')
+
+  let sent: { type: string; text: string }[] = []
+  const spy = {
+    messages: {
+      create: async (params: { system: { type: string; text: string }[] }) => {
+        sent = params.system
+        return {
+          content: [{ type: 'text', text: 'done' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }
+      },
+    },
+  } as unknown as Parameters<typeof executeTask>[0]
+
+  const finance = AGENT_REGISTRY.find((a) => a.key === 'finance')
+  assert.ok(finance)
+
+  await executeTask(spy, {
+    agent: finance,
+    customInstructions: custom,
+    toolbelt: [],
+    context: { workspaceId, timezone: 'UTC' },
+    taskDescription: 'Summarise the quarter',
+    dependencyResults: [],
+    attachments: [],
+    autonomy: 'ask_always',
+    grantedActionTypes: [],
+  }, NO_REPORTS)
+
+  assert.equal(sent.length, 2, 'two system blocks: the built-in one, then ours')
+  assert.equal(sent[0]?.text, finance.instructions, 'the registry text is unchanged and still first')
+  assert.match(
+    sent[1]?.text ?? '',
+    /Our quarter ends in March\./,
+    'the workspace instruction is genuinely in the prompt',
+  )
+})
+
+test('an agent with no custom instructions sends only its built-in prompt', async () => {
+  const { workspaceId } = await seedWorkspace(db)
+  const { executeTask } = await import('../runtime/executor.js')
+  const { AGENT_REGISTRY } = await import('@agents-world/shared')
+
+  let sent: unknown[] = []
+  const spy = {
+    messages: {
+      create: async (params: { system: unknown[] }) => {
+        sent = params.system
+        return {
+          content: [{ type: 'text', text: 'done' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }
+      },
+    },
+  } as unknown as Parameters<typeof executeTask>[0]
+
+  const general = AGENT_REGISTRY.find((a) => a.key === 'general')
+  assert.ok(general)
+
+  await executeTask(spy, {
+    agent: general,
+    customInstructions: null,
+    toolbelt: [],
+    context: { workspaceId, timezone: 'UTC' },
+    taskDescription: 'Say hello',
+    dependencyResults: [],
+    attachments: [],
+    autonomy: 'ask_always',
+    grantedActionTypes: [],
+  }, NO_REPORTS)
+
+  assert.equal(sent.length, 1, 'no empty second block when there is nothing to add')
+})
