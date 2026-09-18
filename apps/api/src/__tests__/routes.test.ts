@@ -78,7 +78,7 @@ test('the agent roster is served for the island', async () => {
   const keys = agents.map((a) => a.key).sort()
   assert.deepEqual(
     keys,
-    ['cto', 'design', 'development', 'finance', 'hr', 'marketing', 'operations', 'orchestrator', 'sales'],
+    ['design', 'development', 'finance', 'general', 'hr', 'marketing', 'operations', 'orchestrator', 'sales'],
     'one agent per department, not one per tool',
   )
 

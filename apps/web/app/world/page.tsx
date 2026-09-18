@@ -41,7 +41,18 @@ export default function HomePage() {
     // Reconnect to whatever is already in flight rather than showing an idle
     // world while agents are running.
     const existing = useWorld.getState().goalId
-    if (existing) socket.current.connect(existing)
+    if (existing) {
+      socket.current.connect(existing)
+      // The prompt lives in whichever tab submitted it. Arriving from Tools or
+      // History, or after a refresh, it has to come back from the server or
+      // the progress card cannot say what is running.
+      if (!useWorld.getState().goalPrompt) {
+        api
+          .goal(existing)
+          .then(({ goal }) => useWorld.getState().setGoalPrompt(goal.prompt))
+          .catch(() => undefined)
+      }
+    }
 
     return () => {
       socket.current?.disconnect()
@@ -66,18 +77,26 @@ export default function HomePage() {
         have, and the same information already reaches the user through the
         agents themselves and the progress card.
       */}
-      {showResult ? (
+      {selectedAgent ? (
+        /*
+         * One right-hand rail, one panel in it.
+         *
+         * The agent detail used to open on the left, over the navigation, and
+         * glass on top of glass on top of the island was three translucent
+         * layers deep - unreadable. It lives on the right now, and takes the
+         * rail rather than stacking under the roster: the roster is how you
+         * reach the detail, so showing both would be showing the same agent
+         * twice in one column.
+         */
+        <div className="agent-dock">
+          <AgentPanel agents={agents} />
+        </div>
+      ) : showResult ? (
         <div className="world-dock" aria-live="polite">
           <Results />
         </div>
       ) : (
         <ActiveAgents agents={agents} />
-      )}
-
-      {selectedAgent && (
-        <div className="agent-dock">
-          <AgentPanel agents={agents} />
-        </div>
       )}
 
       <TaskInProgress />

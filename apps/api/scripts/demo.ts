@@ -63,27 +63,91 @@ const { token } = await issueSession({ userId, workspaceId })
  * than agents that flip straight to done.
  */
 let planCall = 0
+
+/**
+ * Which agents a prompt should reach.
+ *
+ * The real Orchestrator decides this with Claude. This stub matches on a few
+ * words instead, for one reason: the demo has to show the actual product
+ * behaviour, which is that a goal goes to the agents it needs and to no
+ * others. A stub that always returned the same five tasks would teach anyone
+ * watching exactly the wrong thing.
+ */
+const planFor = (prompt: string) => {
+  const p = prompt.toLowerCase()
+  const has = (...words: string[]) => words.some((w) => p.includes(w))
+
+  if (has('design', 'ui', 'ux', 'brand', 'logo')) {
+    return {
+      interpretation: 'Produce the design work described, and say what it is based on.',
+      tasks: [
+        { id: 't1', title: 'Design the system', description: 'Produce the design described and explain the decisions.', agentKey: 'design', dependsOn: [] },
+      ],
+    }
+  }
+
+  if (has('campaign', 'marketing', 'launch', 'audience', 'positioning')) {
+    return {
+      interpretation: 'Pull together what we know, then turn it into a campaign brief.',
+      tasks: [
+        { id: 't1', title: 'Catch up on Slack', description: 'Read the main channels and find customer feedback.', agentKey: 'sales', dependsOn: [] },
+        { id: 't2', title: 'Draft the campaign brief', description: 'Combine the findings into a marketing campaign brief.', agentKey: 'marketing', dependsOn: ['t1'] },
+      ],
+    }
+  }
+
+  if (has('schedule', 'calendar', 'meeting', 'email', 'inbox')) {
+    return {
+      interpretation: 'Review the inbox and the calendar, and flag what needs attention.',
+      tasks: [
+        { id: 't1', title: 'Review this week\u2019s email', description: 'Read unread mail from the last 7 days and pull out what needs action.', agentKey: 'operations', dependsOn: [] },
+        { id: 't2', title: 'Check the calendar', description: 'List tomorrow\u2019s meetings and flag any clashes.', agentKey: 'operations', dependsOn: [] },
+      ],
+    }
+  }
+
+  if (has('revenue', 'spend', 'budget', 'cost', 'finance', 'insight', 'users', 'analytics')) {
+    return {
+      interpretation: 'Find what the numbers and the conversations say about our users.',
+      tasks: [
+        { id: 't1', title: 'Catch up on Slack', description: 'Read the main channels and find customer feedback.', agentKey: 'sales', dependsOn: [] },
+        { id: 't2', title: 'Analyse the numbers', description: 'Summarise spend and revenue signals from the last month.', agentKey: 'finance', dependsOn: [] },
+      ],
+    }
+  }
+
+  // Anything else is one task for the General Agent, which is the common case.
+  return {
+    interpretation: 'Answer this directly - no specialist needed.',
+    tasks: [
+      { id: 't1', title: 'Answer the question', description: prompt, agentKey: 'general', dependsOn: [] },
+    ],
+  }
+}
+
 const stub = {
   messages: {
-    parse: async () => {
+    parse: async (params: { messages?: { content?: unknown }[] }) => {
       // Real planning on claude-opus-5 takes several seconds. Without that
       // delay the whole run finishes before a browser can paint a frame, and
       // the island looks like it did nothing.
       await new Promise((r) => setTimeout(r, 2500))
       planCall++
+
+      /*
+       * Only the goal, not the whole prompt.
+       *
+       * buildUserPrompt wraps the goal in triple quotes and surrounds it with
+       * the agent roster - which names every department. Matching against the
+       * whole blob sent "how should I think about pricing?" to the Design
+       * Agent, because the roster contains the word "design".
+       */
+      const content = String((params.messages ?? [])[0]?.content ?? '')
+      const goal = content.match(/\"\"\"\n([\s\S]*?)\n\"\"\"/)?.[1] ?? content
+      const plan = planFor(goal)
+
       return {
-        parsed_output: {
-          interpretation:
-            'Pull together what happened this week across mail, calendar and Slack, then turn it into a campaign brief.',
-          tasks: [
-            { id: 't1', title: 'Review this week’s email', description: 'Read unread mail from the last 7 days and pull out what needs action.', agentKey: 'operations', dependsOn: [] },
-            { id: 't2', title: 'Check the calendar', description: 'List tomorrow’s meetings and flag any clashes.', agentKey: 'operations', dependsOn: [] },
-            { id: 't3', title: 'Catch up on Slack', description: 'Read the main channels and find customer feedback.', agentKey: 'sales', dependsOn: [] },
-            { id: 't4', title: 'Analyse the numbers', description: 'Summarise spend and revenue signals from the last month.', agentKey: 'finance', dependsOn: [] },
-            { id: 't5', title: 'Draft the campaign brief', description: 'Combine the findings into a marketing campaign brief.', agentKey: 'marketing', dependsOn: ['t1', 't2', 't3', 't4'] },
-          ],
-          unsupported: [],
-        },
+        parsed_output: { ...plan, unsupported: [] },
         stop_reason: 'end_turn',
         usage: { input_tokens: 1200, output_tokens: 340 },
       }

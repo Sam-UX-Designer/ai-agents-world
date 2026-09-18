@@ -16,7 +16,7 @@ finance.png
 marketing.png
 sales.png
 operations.png
-cto.png
+general.png
 development.png
 design.png
 ```

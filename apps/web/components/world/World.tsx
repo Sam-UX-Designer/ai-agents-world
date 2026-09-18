@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentInfo } from '@/lib/api'
 import { api } from '@/lib/api'
 import { pointOn, useCoverRect } from '@/lib/coverRect'
@@ -55,10 +55,115 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
         <div className="world__veil" />
       </div>
 
+      <Routes agents={agents} rect={rect} />
       <Markers agents={agents} rect={rect} />
     </>
   )
 }
+
+/** Where the Orchestrator stands. Every dispatch line starts here. */
+const HUB_STATION: [number, number] = [0.502, 0.332]
+
+/**
+ * The dispatch animation.
+ *
+ * When the Orchestrator hands a task to an agent, a light travels from the hub
+ * along a line to that agent's station. It exists to make one thing legible:
+ * the goal went to the Orchestrator, the Orchestrator chose someone, and that
+ * someone is now working.
+ *
+ * Every line corresponds to an agent that genuinely entered an active state -
+ * see RouteView in the store. Agents that were not given work get no line,
+ * which is the point: the picture shows routing, not broadcasting.
+ */
+function Routes({
+  agents,
+  rect,
+}: {
+  agents: readonly AgentInfo[]
+  rect: ReturnType<typeof useCoverRect>
+}) {
+  const routes = useWorld((s) => s.routes)
+  const clearRoute = useWorld((s) => s.clearRoute)
+  const goalId = useWorld((s) => s.goalId)
+  const goalState = useWorld((s) => s.goalState)
+  const orchestrator = useWorld((s) => s.agents.orchestrator)
+
+  // Each line removes itself once its travel has finished.
+  useEffect(() => {
+    if (routes.length === 0) return
+    const timers = routes.map((r) => setTimeout(() => clearRoute(r.id), ROUTE_MS))
+    return () => timers.forEach(clearTimeout)
+  }, [routes, clearRoute])
+
+  if (rect.width === 0) return null
+
+  const hub = pointOn(rect, HUB_STATION)
+  // The hub is lit while the Orchestrator is reading the goal and deciding.
+  const thinking =
+    goalId !== null &&
+    goalState !== 'completed' &&
+    goalState !== 'failed' &&
+    ['planning', 'spawning', 'working'].includes(orchestrator?.state ?? 'planning')
+
+  return (
+    <div className="routes" aria-hidden="true">
+      {(thinking || routes.length > 0) && (
+        <span className="routes__hub" data-thinking={thinking} style={{ left: hub.left, top: hub.top }} />
+      )}
+
+      <svg className="routes__svg">
+        {routes.map((route) => {
+          const agent = agents.find((a) => a.key === route.agentKey)
+          if (!agent) return null
+          const to = pointOn(rect, agent.zone.station as [number, number])
+          /*
+           * The dash is sized in real pixels from the line's own length.
+           *
+           * `pathLength="1"` would be the tidy way to normalise this, but
+           * Chromium does not honour it on a <line>: the dash silently never
+           * rendered. Measuring here also means a short hop and a long one
+           * both travel in the same 1.4s, which is what makes the animation
+           * read as a handover rather than as a distance.
+           */
+          const length = Math.hypot(to.left - hub.left, to.top - hub.top)
+
+          return (
+            <g key={route.id} style={{ ['--len' as string]: `${length}px` }}>
+              {/* The path itself, faint: context for the pulse. */}
+              <line
+                className="routes__line"
+                x1={hub.left} y1={hub.top} x2={to.left} y2={to.top}
+                stroke={agent.accent}
+              />
+              {/* The travelling light - the task itself moving. */}
+              <line
+                className="routes__pulse"
+                x1={hub.left} y1={hub.top} x2={to.left} y2={to.top}
+                stroke={agent.accent}
+              />
+              {/* The head of it. The island's artwork already has blue paths
+                  painted between the buildings, and a thin moving dash simply
+                  disappears into them - a bright dot does not. */}
+              <circle
+                className="routes__dot"
+                cx={hub.left} cy={hub.top} r={7}
+                fill={agent.accent}
+                style={{
+                  ['--dx' as string]: `${to.left - hub.left}px`,
+                  ['--dy' as string]: `${to.top - hub.top}px`,
+                }}
+              />
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+/** How long one dispatch takes to travel, in milliseconds. Matches the CSS. */
+const ROUTE_MS = 1400
 
 function Markers({
   agents,
@@ -183,9 +288,17 @@ export function ActiveAgents({ agents }: { agents: readonly AgentInfo[] }) {
   )
 }
 
-/** Bottom-right progress on the goal in flight. */
+/**
+ * Bottom-right progress on the goal in flight.
+ *
+ * Shows the goal in the user's own words. A run takes minutes, during which
+ * people switch tabs and come back - "Planning..." alone gives them no way to
+ * recognise what they started, and there is nowhere else on this screen that
+ * the prompt survives after the input clears.
+ */
 export function TaskInProgress() {
   const goalId = useWorld((s) => s.goalId)
+  const goalPrompt = useWorld((s) => s.goalPrompt)
   const goalState = useWorld((s) => s.goalState)
   const tasks = useWorld((s) => s.tasks)
 
@@ -205,6 +318,7 @@ export function TaskInProgress() {
       </span>
       <span className="taskcard__body">
         <strong>{goalState === 'completed' ? 'Task complete' : 'Task in progress'}</strong>
+        {goalPrompt && <q className="taskcard__prompt">{goalPrompt}</q>}
         <em>{list.length > 0 ? `${done} of ${list.length} tasks done` : 'Planning…'}</em>
         <span className="taskcard__bar">
           <span className="taskcard__fill" style={{ width: `${percent}%` }} />
@@ -243,7 +357,7 @@ export function CommandBar({
     try {
       const { goalId } = await api.submitGoal(trimmed)
       setPrompt('')
-      useWorld.getState().beginGoal(goalId, 0)
+      useWorld.getState().beginGoal(goalId, 0, trimmed)
       onStarted(goalId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start that')

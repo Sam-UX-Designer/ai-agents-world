@@ -652,7 +652,9 @@ html, body {
   overflow-y: auto;
   border-radius: var(--radius-lg);
 }
-.agent-dock { left: var(--edge); top: calc(var(--edge) + 62px); width: min(320px, calc(100vw - 2 * var(--edge))); }
+/* Right rail, clear of the left navigation. It used to sit on the left, where
+   it covered the nav and stacked a third layer of glass over the island. */
+.agent-dock { right: var(--edge); top: calc(var(--edge) + 62px); width: min(340px, calc(100vw - 2 * var(--edge))); }
 .world-dock { right: var(--edge); top: calc(var(--edge) + 62px); width: min(320px, calc(100vw - 2 * var(--edge))); display: grid; gap: 10px; }
 
 /* ------------------------------------------------------------ controls -- */
@@ -1835,4 +1837,114 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .auth, .auth__card, .auth__theme svg { transition: none; }
+}
+
+
+/* ===========================================================================
+   Dispatch routing
+   ---------------------------------------------------------------------------
+   The Orchestrator receiving a goal and handing it to an agent, drawn over the
+   artwork. Purely a view of events that already happened - see RouteView.
+   =========================================================================== */
+
+.routes {
+  position: fixed;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.routes__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* The path, faint: it is context for the pulse, not the event itself. */
+.routes__line {
+  stroke-width: 2.5;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px currentColor);
+  animation: route-line 1.4s ease-out forwards;
+}
+
+/*
+ * The travelling light.
+ *
+ * One dash as long as the line, offset from one end to the other. pathLength
+ * normalises every line to 1 unit so a short hop and a long one take the same
+ * time - the animation is showing a handover, not a distance.
+ */
+.routes__pulse {
+  stroke-width: 5;
+  stroke-linecap: round;
+  /* Sized from the line's measured length - see the comment in Routes. */
+  stroke-dasharray: calc(var(--len) * 0.18) var(--len);
+  filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 0 3px #fff);
+  animation: route-pulse 1.4s cubic-bezier(.4, 0, .3, 1) forwards;
+}
+
+@keyframes route-line {
+  0% { opacity: 0; }
+  18% { opacity: 0.55; }
+  70% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+/* The leading dot, with a white core so it reads against the artwork's own
+   blue paths rather than blending into them. */
+.routes__dot {
+  filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 0 4px #fff);
+  animation: route-dot 1.4s cubic-bezier(.4, 0, .3, 1) forwards;
+}
+.routes__dot::after { content: ""; }
+
+@keyframes route-dot {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+
+@keyframes route-pulse {
+  0% { stroke-dashoffset: calc(var(--len) * 0.18); opacity: 0; }
+  12% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { stroke-dashoffset: calc(var(--len) * -1); opacity: 0; }
+}
+
+/*
+ * The hub, lit while the Orchestrator is reading the goal.
+ *
+ * Sits on the Orchestrator's station over the glowing sphere already in the
+ * artwork, so it reads as that sphere waking up rather than as a new object.
+ */
+.routes__hub {
+  position: absolute;
+  width: 132px; height: 132px;
+  margin: -66px 0 0 -66px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(110 190 255 / 0.42) 0%, rgb(62 155 255 / 0.16) 42%, transparent 70%);
+}
+.routes__hub[data-thinking="true"] { animation: hub-think 1.5s ease-in-out infinite; }
+.routes__hub[data-thinking="false"] { animation: hub-think 1.5s ease-in-out 2; }
+
+@keyframes hub-think {
+  0%, 100% { transform: scale(0.82); opacity: 0.45; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+/* The goal in the user's own words, on the progress card. */
+.taskcard__prompt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 2px 0 3px;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.4;
+  color: var(--color-accent-soft);
+  quotes: '"' '"';
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The dispatch still appears and still clears; it just does not travel. */
+  .routes__line, .routes__pulse, .routes__dot, .routes__hub { animation-duration: .001ms !important; }
 }

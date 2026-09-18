@@ -60,8 +60,22 @@ export interface ApprovalView {
   readonly preview: string | null
 }
 
+/**
+ * One hop of work leaving the hub for an agent.
+ *
+ * Recorded when an agent actually enters an active state, never predicted, so
+ * the line that lights up on the island is showing a dispatch that really
+ * happened. The component drops each one once its animation has run.
+ */
+export interface RouteView {
+  readonly id: number
+  readonly agentKey: string
+}
+
 export interface WorldState {
   goalId: string | null
+  /** Exactly what the user typed. Shown on the progress card. */
+  goalPrompt: string | null
   goalState: string
   goalError: string | null
   interpretation: string | null
@@ -76,9 +90,13 @@ export interface WorldState {
   connection: 'connecting' | 'live' | 'reconnecting' | 'offline'
   /** Which agent the detail panel is showing. Client-only - never from an event. */
   selectedAgent: string | null
+  /** Dispatches from the hub still being animated. */
+  routes: RouteView[]
 
   apply: (event: WorldEvent) => void
-  beginGoal: (goalId: string, sinceSeq: number) => void
+  beginGoal: (goalId: string, sinceSeq: number, prompt?: string) => void
+  setGoalPrompt: (prompt: string) => void
+  clearRoute: (id: number) => void
   setConnection: (status: WorldState['connection']) => void
   selectAgent: (agentKey: string | null) => void
   reset: () => void
@@ -95,6 +113,7 @@ const idleAgent = (key: string): AgentView => ({
 
 const EMPTY = {
   goalId: null,
+  goalPrompt: null,
   goalState: 'submitted',
   goalError: null,
   interpretation: null,
@@ -107,13 +126,31 @@ const EMPTY = {
   lastSeq: -1,
   connection: 'offline' as const,
   selectedAgent: null,
+  routes: [] as RouteView[],
 }
+
+/** Agent states that mean "this one is doing something right now". */
+const ACTIVE_STATES = ['planning', 'spawning', 'working']
+
+let routeId = 0
 
 export const useWorld = create<WorldState>((set) => ({
   ...EMPTY,
 
-  beginGoal: (goalId, sinceSeq) =>
-    set({ ...EMPTY, goalId, lastSeq: sinceSeq - 1, connection: 'connecting' }),
+  beginGoal: (goalId, sinceSeq, prompt) =>
+    set({
+      ...EMPTY,
+      goalId,
+      goalPrompt: prompt ?? null,
+      lastSeq: sinceSeq - 1,
+      connection: 'connecting',
+    }),
+
+  // Filled in after a reconnect, where the goal is already running and its
+  // prompt has to come back from the server rather than from this tab.
+  setGoalPrompt: (goalPrompt) => set({ goalPrompt }),
+
+  clearRoute: (id) => set((s) => ({ routes: s.routes.filter((r) => r.id !== id) })),
 
   setConnection: (connection) => set({ connection }),
 
@@ -159,8 +196,24 @@ export const useWorld = create<WorldState>((set) => ({
 
         case 'agent.state_changed': {
           const previous = current.agents[event.agentKey] ?? idleAgent(event.agentKey)
+
+          /*
+           * A dispatch to animate.
+           *
+           * Only on the edge into an active state, and never for the
+           * Orchestrator itself - it is the hub the line leaves from, so a
+           * route to it would be a line to nowhere.
+           */
+          const dispatched =
+            event.agentKey !== 'orchestrator' &&
+            ACTIVE_STATES.includes(event.state) &&
+            !ACTIVE_STATES.includes(previous.state)
+
           return {
             ...base,
+            routes: dispatched
+              ? [...current.routes, { id: ++routeId, agentKey: event.agentKey }]
+              : current.routes,
             agents: {
               ...current.agents,
               [event.agentKey]: {
