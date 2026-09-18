@@ -45,6 +45,28 @@ preset and a Root Directory of `apps/web`, Vercel's own default finds
 `.next` exactly where the build puts it, so there is no value left anywhere
 that can double the path.
 
+### "No Production Deployment" / Promote to Production fails
+
+A separate trap, and nothing to do with the build.
+
+This repository has one branch, `claude/keen-dirac-jjcw14`, and it is also the
+default branch on GitHub. There is no `main`. A new Vercel project assumes
+`main` is the production branch, so every build lands as a *Preview*, the
+Overview page says "No Production Deployment", and **Promote to Production**
+fails with a generic error because the branch it wants does not exist.
+
+Vercel → **Settings** → **Git** → **Production Branch** → set it to the branch
+you actually push to. The next push then deploys straight to production; there
+is no need to promote anything by hand.
+
+Two things worth checking at the same time, in **Settings** → **Environment
+Variables**:
+
+- `API_URL` must be enabled for **Preview** as well as Production, or preview
+  deployments cannot reach the API and silently fall back to preview mode.
+- It should be a **Config** value, not a Secret. It is a public URL, and
+  Secrets are not exposed to the build.
+
 ### If the error comes back after that
 
 You are almost certainly rebuilding an old commit. **Redeploy** on a past
