@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { Backdrop } from '@/components/world/Backdrop'
+import { Logo } from '@/components/brand/Logo'
 
 /**
  * The front door: what the product is, and the way in, on one screen.
@@ -106,12 +107,7 @@ export function SignInScreen() {
 
       <header className="entry__top">
         <span className="entry__brand">
-          <span className="entry__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="21" height="21" fill="none">
-              <path d="m12 3.2 8.2 16.4a.7.7 0 0 1-.63 1.02H4.43a.7.7 0 0 1-.63-1.02L12 3.2Z"
-                stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
-            </svg>
-          </span>
+          <Logo className="entry__mark" />
           <span className="entry__brandtext">
             <strong>AI Agents World</strong>
             <em>Think it. Delegate it. Get it done.</em>

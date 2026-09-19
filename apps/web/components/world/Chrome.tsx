@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { api, type BillingState, type HistoryEntry, type Usage } from '@/lib/api'
+import { Logo } from '@/components/brand/Logo'
 import { useWorld } from '@/lib/store'
 
 /**
@@ -50,11 +51,7 @@ export function Chrome({
   return (
     <>
       <div className="brand">
-        <span className="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-            <path d="M12 3 4 19h4l4-8 4 8h4L12 3Z" fill="currentColor" />
-          </svg>
-        </span>
+        <Logo className="brand__mark" />
         <span className="brand__text">
           <strong>AI Agents World</strong>
           <em>Think it. Delegate it. Get it done.</em>

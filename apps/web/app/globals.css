@@ -191,15 +191,21 @@ html, body {
   gap: 11px;
 }
 
+/*
+ * The logo, not a tile with a glyph in it.
+ *
+ * This used to paint a blue gradient square and centre a white triangle on it,
+ * because there was no logo yet. There is one now, and it is already a blue
+ * rounded square - so the box paints nothing, clips nothing, and the file
+ * supplies the whole mark. The shadow is a drop-shadow rather than a box-shadow
+ * so it follows the logo's own silhouette instead of a square that is not
+ * there.
+ */
 .brand__mark {
   width: 38px;
   height: 38px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  background: linear-gradient(150deg, var(--color-accent), #1E64C8);
-  box-shadow: 0 6px 18px rgb(20 90 190 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.28);
+  flex-shrink: 0;
+  filter: drop-shadow(0 5px 14px rgb(8 40 90 / 0.5));
 }
 
 .brand__text { display: flex; flex-direction: column; line-height: 1.28; }
@@ -3248,12 +3254,10 @@ html, body {
 
 .entry__brand { display: flex; align-items: center; gap: 11px; }
 
+/* Same logo, same reasoning as .brand__mark. */
 .entry__mark {
-  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
-  display: grid; place-items: center;
-  color: #fff;
-  background: linear-gradient(150deg, #4DA3FF, #2563EB);
-  box-shadow: 0 6px 18px rgb(37 99 235 / 0.4);
+  width: 38px; height: 38px; flex-shrink: 0;
+  filter: drop-shadow(0 5px 14px rgb(8 40 90 / 0.5));
 }
 
 .entry__brandtext { display: flex; flex-direction: column; line-height: 1.25; }
