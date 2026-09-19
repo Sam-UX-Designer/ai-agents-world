@@ -107,7 +107,9 @@ export async function runGoal(
       ORCHESTRATOR.key,
       null,
       'waiting',
-      `Coordinating ${planResult.plan.tasks.length} tasks`,
+      planResult.plan.tasks.length === 1
+        ? 'Coordinating 1 task'
+        : `Coordinating ${planResult.plan.tasks.length} tasks`,
     )
 
     await executePlan(deps, input, planResult.waves, taskIds)

@@ -97,17 +97,39 @@ function Routes({
   if (rect.width === 0) return null
 
   const hub = pointOn(rect, HUB_STATION)
-  // The hub is lit while the Orchestrator is reading the goal and deciding.
+
+  /*
+   * Two different truths about the hub, and they are not the same window.
+   *
+   * `thinking` is the Orchestrator itself mid-thought - reading the goal,
+   * choosing agents. It stops the moment the plan is handed out, because the
+   * Orchestrator really does go quiet then and waits.
+   *
+   * `running` is the goal being alive at all. That lasts until the answer
+   * comes back, and it is what the ring tracks: the hub is the station the
+   * whole run is coordinated from, so a turning ring there is true for as
+   * long as anything is in flight. Tying the ring to `thinking` meant it
+   * turned for the two seconds of planning and then stopped while six agents
+   * worked, which reads as the world having given up.
+   *
+   * Neither is invented. Both are read from events the backend actually sent.
+   */
   const thinking =
     goalId !== null &&
     goalState !== 'completed' &&
     goalState !== 'failed' &&
     ['planning', 'spawning', 'working'].includes(orchestrator?.state ?? 'planning')
 
+  const running =
+    goalId !== null && goalState !== 'completed' && goalState !== 'failed'
+
   return (
     <div className="routes" aria-hidden="true">
-      {(thinking || routes.length > 0) && (
-        <span className="routes__hub" data-thinking={thinking} style={{ left: hub.left, top: hub.top }} />
+      {(running || routes.length > 0) && (
+        <span className="routes__core" style={{ left: hub.left, top: hub.top }}>
+          <span className="routes__hub" data-thinking={thinking} />
+          {running && <span className="routes__spin" />}
+        </span>
       )}
 
       <svg className="routes__svg">
