@@ -37,33 +37,98 @@ const SUGGESTIONS = [
 export function World({ agents }: { agents: readonly AgentInfo[] }) {
   const [artworkMissing, setArtworkMissing] = useState(false)
   const rect = useCoverRect(ISLAND_ASPECT)
+  const { scroller, scrollLeft, pannable, onScroll } = useIslandPan(rect)
 
   const goalId = useWorld((s) => s.goalId)
   const goalState = useWorld((s) => s.goalState)
   const running =
     goalId !== null && goalState !== 'completed' && goalState !== 'failed'
 
+  /*
+   * Everything anchored to the artwork reads a rect shifted by the scroll, so
+   * the stations travel with the island rather than hovering over a picture
+   * that slid out from under them. One number does it: pointOn is
+   * `rect.left + fraction * rect.width` all the way down, and with the island
+   * scrolled by `scrollLeft` its left edge sits exactly `-scrollLeft` from the
+   * viewport's.
+   */
+  const panned = { ...rect, left: -scrollLeft }
+
   return (
     <>
-      <div className="world" aria-hidden={artworkMissing ? undefined : 'true'}>
+      <div
+        className="world"
+        ref={scroller}
+        onScroll={onScroll}
+        data-pannable={pannable ? 'true' : undefined}
+        aria-hidden={artworkMissing ? undefined : 'true'}
+      >
         {artworkMissing ? (
           <MissingArtwork />
         ) : (
-          <>
+          <div className="world__pan" style={rect.width ? { width: rect.width } : undefined}>
             <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
-            <Orb rect={rect} running={running} />
-          </>
+            {/* Inside the scroller, so it travels with the island for free. */}
+            <Orb rect={{ ...rect, left: 0 }} running={running} />
+          </div>
         )}
-        {/* Readability veil. Weighted to the corners and the bottom, where the
-            panels and the command bar sit, so the middle of the island - the
-            part worth looking at - keeps its full brightness. */}
-        <div className="world__veil" />
       </div>
 
-      <Routes agents={agents} rect={rect} />
-      <Markers agents={agents} rect={rect} />
+      {/* Readability veil. Weighted to the corners and the bottom, where the
+          panels and the command bar sit, so the middle of the island - the
+          part worth looking at - keeps its full brightness.
+
+          A sibling of the scroller rather than a child: a veil that scrolled
+          with the island would carry its darkened corners away from the
+          corners of the screen. */}
+      <div className="world__veil" />
+
+      <Routes agents={agents} rect={panned} />
+      <Markers agents={agents} rect={panned} />
     </>
   )
+}
+
+/**
+ * Pan the island left and right, using the browser's own scrolling.
+ *
+ * The artwork is 16:9 and cover-fitted, so on a phone held upright roughly
+ * three quarters of the island is off screen - whole stations were simply
+ * unreachable, and the agent cards were hidden outright at this width, which
+ * left Home as a photograph.
+ *
+ * This was first built as a pointer drag and did not survive contact with a
+ * phone: Chromium cancels the gesture one frame in, so the island moved a
+ * single step and stopped. Measured rather than guessed - four pointer events,
+ * the last a pointercancel, with touch-action already `none` on every element
+ * involved. A scroll container has none of that problem, because handling a
+ * swipe is the browser's job rather than ours, and it arrives with momentum,
+ * rubber-banding and trackpads already correct.
+ */
+function useIslandPan(rect: CoverRect) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+
+  // The image hangs off the left by exactly half its overflow, so a negative
+  // `left` is the same statement as "there is island off screen".
+  const pannable = rect.left < -1
+
+  // Start in the middle, which is where cover-fit would have put it, so the
+  // island does not jump on the first paint.
+  useEffect(() => {
+    const el = scroller.current
+    if (!el || rect.width === 0) return
+    const centre = Math.max(0, (rect.width - el.clientWidth) / 2)
+    el.scrollLeft = centre
+    setScrollLeft(centre)
+  }, [rect.width])
+
+  const onScroll = useCallback(() => {
+    const el = scroller.current
+    if (el) setScrollLeft(el.scrollLeft)
+  }, [])
+
+  return { scroller, scrollLeft, pannable, onScroll }
 }
 
 /** Where the Orchestrator stands. Every dispatch line starts here. */

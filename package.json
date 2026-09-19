@@ -14,6 +14,12 @@
     "typecheck": "pnpm -r typecheck",
     "dev:api": "pnpm --filter @agents-world/api dev",
     "db:generate": "pnpm --filter @agents-world/api db:generate",
-    "db:migrate": "pnpm --filter @agents-world/api db:migrate"
+    "db:migrate": "pnpm --filter @agents-world/api db:migrate",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "test": "pnpm --filter @agents-world/api test && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

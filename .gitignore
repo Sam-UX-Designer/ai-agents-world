@@ -16,3 +16,7 @@ npm-debug.log*
 .vscode/
 *.tsbuildinfo
 .turbo/
+
+# Playwright
+test-results/
+playwright-report/

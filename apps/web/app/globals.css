@@ -117,12 +117,41 @@ html, body {
 
 /* ------------------------------------------------------------------ world -- */
 
+/*
+ * The island, and the thing that scrolls it.
+ *
+ * A real scroll container rather than a pointer drag. Handling a swipe -
+ * momentum, rubber-banding, trackpads, a finger leaving the screen - is the
+ * browser's job, and the hand-rolled version was cancelled by Chromium one
+ * frame into every gesture.
+ */
 .world {
   position: fixed;
   inset: 0;
   z-index: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
 }
+.world::-webkit-scrollbar { display: none; }
+
+/* As wide as the cover-fitted artwork, which is what gives the container
+   something to scroll. Sized from JS because only the aspect maths knows it. */
+.world__pan { position: relative; height: 100%; }
+
+.world[data-pannable="true"] { cursor: grab; }
+
+/*
+ * Draggable when there is island off screen to drag to.
+ *
+ * `touch-action: none` because the gesture is ours: without it the browser
+ * claims a horizontal swipe for back-navigation on iOS and the island never
+ * moves. The attribute is only set when the image actually overflows, so a
+ * desktop where the whole island already fits keeps its normal cursor and
+ * normal touch behaviour.
+ */
+.world[data-pannable="true"]:active { cursor: grabbing; }
 
 /*
  * The island fills the viewport.
@@ -144,9 +173,6 @@ html, body {
   object-fit: cover;
   object-position: center;
   display: block;
-  /* A touch of scale hides the hairline seam some browsers leave at the edge
-     of a cover-fitted image on fractional device pixel ratios. */
-  transform: scale(1.012);
 }
 
 /*
@@ -157,8 +183,9 @@ html, body {
  * the part worth looking at.
  */
 .world__veil {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   background:
     radial-gradient(120% 80% at 50% 42%, transparent 38%, rgb(4 8 16 / 0.34) 100%),
@@ -961,7 +988,34 @@ html, body {
     --gap: 10px;
   }
 
-  .markers { display: none; }
+  /*
+   * The stations stay.
+   *
+   * They used to be hidden outright at this width, on the grounds that the
+   * cards are cramped on a phone. They are - but hiding them turns Home into
+   * a photograph: the one thing this product promises is watching named
+   * agents work at their own stations, and on the device most people will
+   * open it on, there was nothing to watch. Smaller cards, and the island
+   * pans so the ones off the edge can be reached.
+   */
+  .marker {
+    gap: 6px;
+    padding: 4px 9px 4px 4px;
+    border-radius: 10px;
+    bottom: 22px;
+  }
+  .marker[data-primary="true"] { bottom: 30px; }
+  .marker__label strong { font-size: 11px; }
+  .marker__label em { font-size: 9.5px; }
+  .marker__icon, .marker__icon--img { width: 20px; height: 20px; }
+
+  /*
+   * Idle stations step back so five cards on a 390px screen do not read as a
+   * wall of glass over the artwork. The working one stays at full strength -
+   * which is the whole point of looking at the island.
+   */
+  .marker[data-state="idle"] { opacity: 0.72; }
+
   .profile { display: none; }
   .brand__text em { display: none; }
   .brand__text strong { font-size: 15px; }
@@ -3517,8 +3571,6 @@ html, body {
    */
   mask: radial-gradient(circle closest-side, #000 90%, transparent 100%);
   -webkit-mask: radial-gradient(circle closest-side, #000 90%, transparent 100%);
-  /* Matches the artwork's own scale so the two never drift apart. */
-  transform: scale(1.012);
   will-change: transform;
 }
 
@@ -3527,8 +3579,8 @@ html, body {
 }
 
 @keyframes orb-turn {
-  from { transform: scale(1.012) rotate(0deg); }
-  to   { transform: scale(1.012) rotate(360deg); }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -32,6 +32,8 @@ const { EventBus } = await import('../src/realtime/bus.js')
 const { PostgresEventStore } = await import('../src/realtime/store.js')
 const { issueSession, SESSION_COOKIE } = await import('../src/auth/sessions.js')
 const { saveConnection } = await import('../src/tools/connections.js')
+const { schema } = await import('../src/db/client.js')
+const { eq } = await import('drizzle-orm')
 
 const db = await freshDatabase()
 const { workspaceId, userId } = await seedWorkspace(db)
@@ -221,6 +223,33 @@ app.get('/demo/login', async (_request, reply) =>
     })
     .redirect(`${process.env.APP_URL}/world`),
 )
+
+/**
+ * Refill the demo wallet.
+ *
+ * The end-to-end suite spends credits doing its job, and one spec deliberately
+ * spends the lot to prove the gate refuses a goal. Without a way back, every
+ * test after that one fails for want of credit rather than for want of
+ * correctness - and a suite whose result depends on the order its files
+ * happen to run in is not a launch gate.
+ *
+ * Demo script only, like /demo/login. The server `pnpm dev` builds has no such
+ * route, and neither does production.
+ */
+app.post('/demo/credits', async (_request, reply) => {
+  const { balanceOf, grantCredits } = await import('../src/billing/wallet.js')
+  const before = await balanceOf(workspaceId)
+
+  // Reset the daily allowance too - it is the free plan's whole balance, and
+  // a top-up of paid credits would not restore it.
+  await db
+    .update(schema.wallets)
+    .set({ dailyUsed: 0, dailyResetAt: new Date(Date.now() + 86_400_000) })
+    .where(eq(schema.wallets.workspaceId, workspaceId))
+
+  await grantCredits(workspaceId, 25, 'adjustment', 'e2e top-up')
+  return reply.send({ before: before.total, after: (await balanceOf(workspaceId)).total })
+})
 
 await app.listen({ port: Number(process.env.PORT), host: '0.0.0.0' })
 
