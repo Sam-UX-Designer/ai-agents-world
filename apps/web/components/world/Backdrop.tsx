@@ -34,8 +34,9 @@ export function Backdrop({
  * The artwork itself, WebP first.
  *
  * The PNG stays the asset of record - it is what the owner uploaded and what
- * the WebP is generated from, losslessly, at build time. So this is a smaller
- * container for identical pixels, not a different picture.
+ * the WebP is generated from at build time, at a quality the owner chose by
+ * comparing a 2x crop of the most detailed part of the artwork against the
+ * original. It is a sixth of the size and indistinguishable at viewing size.
  *
  * <picture> here negotiates FORMAT, and nothing else. A browser too old for
  * WebP skips the <source> and loads the PNG. It is not an error fallback: a

@@ -20,8 +20,15 @@ Replace the `.png` and push - nothing else. `scripts/optimize-world-art.mjs`
 runs on every build and re-encodes each PNG here as a `.webp` beside it, and
 the page asks for the WebP first with the PNG as its fallback.
 
-The re-encode is **lossless**: identical pixels in a smaller container, around
-20-25% off these files. Nothing in the build ever degrades artwork.
+The re-encode runs at **WebP quality 95**, which takes about 80% off these
+files. That number is the owner's decision, made by comparing a 2x crop of the
+lighthouse - the most detailed part of the artwork - against the original and
+against a lossless encode, and finding no visible difference.
+
+If artwork is ever replaced with something that suffers at 95 - flat gradients
+and hard edges are where WebP shows its teeth, foliage and water are not -
+raise `QUALITY` in the script, or set `lossless: true` there and accept that
+the files only shrink by about a quarter.
 
 Do not hand-edit the `.webp` files, and do not delete a `.png` - the PNG is the
 asset of record and the input the WebP is made from. It is also what a browser
@@ -31,11 +38,6 @@ If a WebP cannot be produced, the build **fails** rather than deploying. That
 is deliberate: a missing WebP renders a broken image, it does not quietly fall
 back to the PNG, so a red build is the only outcome that cannot ship a hole
 where the island should be.
-
-Lossy WebP would cut these about 6x rather than 1.3x, at a difference that is
-invisible at viewing size and measurable only by zooming in. That is a
-decision for whoever owns the artwork, not for the build - change `QUALITY` in
-the script if it is ever made.
 
 **Tools and History** backgrounds sit much further back than Home - in the
 reference they are a distant island under cloud, with the content reading over
