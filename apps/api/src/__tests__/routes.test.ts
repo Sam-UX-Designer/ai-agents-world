@@ -631,3 +631,119 @@ test('speech returns 204 when no voice key is configured', async () => {
   })
   assert.equal(res.statusCode, 204, 'the client shows text and plays nothing, not an error')
 })
+
+/*
+ * The gate at the HTTP edge.
+ *
+ * The wallet tests prove the arithmetic; these prove the arithmetic is
+ * actually consulted before a goal runs. A limit that the route forgets to
+ * call is not a limit.
+ */
+
+test('a goal is refused once the allowance is gone, before any model call', async () => {
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const cookie = await cookieFor(userId, workspaceId)
+  const { getBillingPlan } = await import('@agents-world/shared')
+  const perDay = getBillingPlan('free').goalsPerDay!
+
+  /*
+   * A plan that actually succeeds.
+   *
+   * The shared stub returns an empty task list, which fails the goal - and a
+   * failed goal is refunded, so the allowance never ran out and this test
+   * quietly passed five goals through forever. Metering can only be observed
+   * on runs that complete.
+   */
+  let planCalls = 0
+  const counting = {
+    messages: {
+      parse: async () => {
+        planCalls++
+        return {
+          parsed_output: {
+            interpretation: 'Answer it.',
+            tasks: [
+              {
+                id: 't1',
+                title: 'Answer',
+                description: 'Answer the question',
+                agentKey: 'general',
+                dependsOn: [],
+              },
+            ],
+            unsupported: [],
+          },
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }
+      },
+      create: async () => ({
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    },
+  } as unknown as Anthropic
+
+  const metered = await buildApp(counting, new EventBus(new PostgresEventStore()))
+  await metered.ready()
+
+  const submit = () =>
+    metered.inject({
+      method: 'POST',
+      url: '/goals',
+      headers: { cookie },
+      payload: { prompt: 'Plan a launch', timezone: 'UTC' },
+    })
+
+  for (let i = 0; i < perDay; i++) {
+    assert.equal((await submit()).statusCode, 202, `goal ${i + 1} is accepted`)
+    // runGoal is fired, not awaited. Let it settle so a late failure cannot
+    // refund a credit after the next submission has already read the balance.
+    await new Promise((r) => setTimeout(r, 60))
+  }
+
+  const callsBefore = planCalls
+  const refused = await submit()
+
+  assert.equal(refused.statusCode, 402, 'the next one is refused with "payment required"')
+  const body = refused.json() as { error: string; upgrade?: boolean }
+  assert.match(body.error, /free goals/i, 'and says what ran out, in words')
+  assert.equal(body.upgrade, true, 'and tells the client there is a way forward')
+  assert.equal(planCalls, callsBefore, 'no model call was made for the refused goal')
+
+  // Recorded rather than silently dropped, so History can show the user they
+  // asked and why nothing happened.
+  const goals = await db
+    .select()
+    .from(schemaFor.goals)
+    .where(eqFor(schemaFor.goals.workspaceId, workspaceId))
+  const failed = goals.filter((g) => g.state === 'failed')
+  assert.equal(failed.length, 1)
+  assert.match(failed[0]?.error ?? '', /free goals/i)
+
+  await metered.close()
+})
+
+test('the billing route reports the plan and what is left', async () => {
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const cookie = await cookieFor(userId, workspaceId)
+
+  const response = await app.inject({ method: 'GET', url: '/billing', headers: { cookie } })
+  assert.equal(response.statusCode, 200)
+
+  const body = response.json() as {
+    plan: { key: string; name: string; maxAgents: number }
+    freeLeft: number
+    credits: number
+    total: number
+    ledger: unknown[]
+  }
+
+  assert.equal(body.plan.key, 'free')
+  // The whole plan comes back, so the client never keeps its own copy of what
+  // a plan includes and the two can never disagree.
+  assert.ok(body.plan.maxAgents >= 1)
+  assert.equal(body.freeLeft, body.total)
+  assert.ok(Array.isArray(body.ledger))
+})

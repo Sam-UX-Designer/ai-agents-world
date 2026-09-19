@@ -399,3 +399,72 @@ export const oauthStates = pgTable(
   },
   (t) => [index('oauth_states_expiry_idx').on(t.expiresAt)],
 )
+
+// ----------------------------------------------------------------- billing --
+
+/**
+ * What a workspace may spend.
+ *
+ * One row per workspace, created on first use. Two separate balances, because
+ * they behave differently and merging them loses information the user needs:
+ *
+ *   dailyUsed   The free allowance. Resets on a rolling 24h clock. Never
+ *               carries over - that is what makes it an allowance rather than
+ *               a gift.
+ *   credits     Bought or included with a paid plan. Carries over, and is only
+ *               touched once the day's free allowance is gone.
+ *
+ * Spending order is free first, then paid. The other order would quietly
+ * charge someone for a goal their plan already covered.
+ */
+export const wallets = pgTable(
+  'wallets',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    /** A key from the shared billing plans. Unknown values resolve to free. */
+    plan: text('plan').notNull().default('free'),
+    /** Paid credits. One credit is one goal. Never expires. */
+    credits: integer('credits').notNull().default(0),
+    /** Free goals spent since the last reset. */
+    dailyUsed: integer('daily_used').notNull().default(0),
+    /** When dailyUsed goes back to zero. Rolling, not midnight in some
+     *  timezone we would then have to pick for every user on earth. */
+    dailyResetAt: timestamp('daily_reset_at', { withTimezone: true }).notNull().defaultNow(),
+    /** When the monthly allowance was last granted, for paid plans. */
+    periodStartedAt: timestamp('period_started_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('wallets_workspace_idx').on(t.workspaceId)],
+)
+
+/**
+ * Every movement of credit, ever.
+ *
+ * Append-only. The wallet holds the current number; this holds how it got
+ * there. The first time someone says "you charged me twice", a balance alone
+ * cannot answer them and this can - which is the whole reason it is written
+ * before the product has a single paying customer rather than after.
+ */
+export const creditLedger = pgTable(
+  'credit_ledger',
+  {
+    id: id(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    /** The goal this movement relates to, when there is one. */
+    goalId: uuid('goal_id').references(() => goals.id, { onDelete: 'set null' }),
+    /** Negative to spend, positive to grant or refund. */
+    delta: integer('delta').notNull(),
+    /** free_goal | paid_goal | refund | topup | plan_grant | adjustment */
+    reason: text('reason').notNull(),
+    /** Paid balance after this movement, so a statement needs no arithmetic. */
+    balanceAfter: integer('balance_after').notNull(),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('credit_ledger_workspace_idx').on(t.workspaceId, t.createdAt)],
+)

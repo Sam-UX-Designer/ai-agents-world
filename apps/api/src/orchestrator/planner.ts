@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import {
   ORCHESTRATOR,
+  type PlanEffort,
+  type PlanModel,
   availableTools,
   delegatableAgents,
   executionWaves,
@@ -21,8 +23,6 @@ import {
  * testable against a fixed goal without standing up Postgres.
  */
 
-const MODEL = 'claude-opus-5'
-
 /** Non-streaming ceiling that stays under the SDK's HTTP timeout. */
 const MAX_TOKENS = 16_000
 
@@ -35,6 +35,25 @@ export interface PlanRequest {
   readonly attachedFiles?: readonly string[]
   /** The user's timezone, so "tomorrow" means the right day. */
   readonly timezone: string
+  /**
+   * Which model plans this goal, and how hard it thinks.
+   *
+   * Set by the workspace's billing plan rather than fixed, because planning
+   * every free goal on the most expensive model is how a free tier becomes a
+   * bill. Defaults to the best of both so a caller that does not care - a
+   * test, a script - still gets the good behaviour.
+   */
+  readonly model?: PlanModel
+  readonly effort?: PlanEffort
+  /**
+   * Most tasks this plan may split the goal into.
+   *
+   * Cost scales with how many agents wake up, so this is what keeps one
+   * credit worth roughly one credit. Told to the Orchestrator rather than
+   * enforced by truncation afterwards: cutting tasks off a finished plan
+   * breaks the dependencies between the ones that remain.
+   */
+  readonly maxTasks?: number
 }
 
 export type PlanResult =
@@ -76,6 +95,13 @@ function describeRoster(connected: readonly ConnectionProvider[]): string {
 }
 
 function buildUserPrompt(req: PlanRequest): string {
+  const cap =
+    req.maxTasks && req.maxTasks > 0
+      ? `\n\nHard limit: use at most ${req.maxTasks} task${req.maxTasks === 1 ? '' : 's'}. ` +
+        'If the goal genuinely needs more, do the most valuable part within the ' +
+        'limit and say in the interpretation what you left out.'
+      : ''
+
   const files =
     req.attachedFiles && req.attachedFiles.length > 0
       ? `\n\nThe user attached these files. Route them to whichever task needs them:\n${req.attachedFiles.map((f) => `  - ${f}`).join('\n')}`
@@ -90,7 +116,7 @@ The user's timezone is ${req.timezone}. Resolve relative dates like "tomorrow" a
 The user's goal:
 """
 ${req.goal}
-"""${files}
+"""${files}${cap}
 
 Produce the plan.`
 }
@@ -108,7 +134,7 @@ export async function createPlan(
   req: PlanRequest,
 ): Promise<PlanResult> {
   const response = await client.messages.parse({
-    model: MODEL,
+    model: req.model ?? 'claude-opus-5',
     max_tokens: MAX_TOKENS,
     // Stable prefix, cached: the instructions never vary between goals, so
     // every plan after the first pays for only the goal itself.
@@ -122,9 +148,11 @@ export async function createPlan(
     messages: [{ role: 'user', content: buildUserPrompt(req) }],
     output_config: {
       format: zodOutputFormat(taskPlanSchema),
-      // Planning decides how well every downstream agent spends its time.
-      // It is the wrong place to economise.
-      effort: 'high',
+      // Planning decides how well every downstream agent spends its time, so
+      // it is the last place to economise - but a free goal that only ever
+      // goes to one agent has little to plan, and paying Opus prices to
+      // decide that is worse than thinking about it less.
+      effort: req.effort ?? 'high',
     },
   })
 
@@ -156,6 +184,15 @@ export async function createPlan(
         plan.unsupported.length > 0
           ? `This goal needs capabilities no connected agent has: ${plan.unsupported.join(', ')}.`
           : 'The Orchestrator could not find any work to do for this goal.',
+    }
+  }
+
+  if (req.maxTasks && plan.tasks.length > req.maxTasks) {
+    return {
+      ok: false,
+      reason:
+        `This goal needs more than the ${req.maxTasks} agent${req.maxTasks === 1 ? '' : 's'} ` +
+        'your plan allows in one goal. Split it into smaller goals, or move up a plan.',
     }
   }
 

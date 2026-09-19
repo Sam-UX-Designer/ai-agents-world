@@ -25,6 +25,7 @@ import { db, schema } from '../db/client.js'
 import type { EventBus } from '../realtime/bus.js'
 import { resolveApproval, listPendingApprovals } from '../runtime/approvals.js'
 import { runGoal } from '../runtime/orchestration.js'
+import { balanceOf, ledgerFor, spendForGoal } from '../billing/wallet.js'
 import {
   listConnections,
   revokeConnection,
@@ -497,11 +498,32 @@ export async function registerRoutes(
 
       if (!goal) return reply.status(500).send({ error: 'Could not create the goal' })
 
+      /*
+       * The gate, and the only one.
+       *
+       * It sits here - before runGoal, before a single token is bought -
+       * because anywhere later is not a limit. The goal row is written first
+       * so the refusal is recorded against something and the user can see in
+       * History that they asked and why it did not run.
+       */
+      const spend = await spendForGoal(ctx.workspaceId, goal.id)
+      if (!spend.ok) {
+        await db()
+          .update(schema.goals)
+          .set({ state: 'failed', error: spend.reason, completedAt: new Date() })
+          .where(eq(schema.goals.id, goal.id))
+          .catch(() => undefined)
+
+        // 402 rather than 403: this is not "you may not", it is "not yet".
+        return reply.status(402).send({ error: spend.reason, upgrade: true })
+      }
+
       void runGoal(deps, {
         goalId: goal.id,
         workspaceId: ctx.workspaceId,
         prompt: body.data.prompt,
         timezone: body.data.timezone,
+        billing: spend.plan,
       }).catch((err) => request.log.error({ err, goalId: goal.id }, 'goal failed'))
 
       return reply.status(202).send({ goalId: goal.id })
@@ -699,6 +721,37 @@ export async function registerRoutes(
    * both stored facts. Nothing here is estimated: a usage meter that guesses
    * is worse than no meter, because a person will budget against it.
    */
+  /**
+   * What this workspace may spend, and the statement behind it.
+   *
+   * Read by the command bar before it lets someone type, and by the account
+   * menu. The plan itself comes back whole rather than as a name, so the
+   * client never has to hold its own copy of what a plan includes.
+   */
+  app.get('/billing', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const [balance, ledger] = await Promise.all([
+        balanceOf(ctx.workspaceId),
+        ledgerFor(ctx.workspaceId, 20),
+      ])
+
+      return {
+        ...balance,
+        ledger: ledger.map((entry) => ({
+          id: entry.id,
+          delta: entry.delta,
+          reason: entry.reason,
+          balanceAfter: entry.balanceAfter,
+          note: entry.note,
+          at: entry.createdAt.toISOString(),
+        })),
+      }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
   app.get('/usage', async (request, reply) => {
     try {
       const ctx = await authenticate(request)

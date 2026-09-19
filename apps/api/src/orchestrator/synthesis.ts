@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import type { PlanEffort, PlanModel } from '@agents-world/shared'
 
 /**
  * The Orchestrator's second half: many agent results, one answer.
@@ -8,7 +9,6 @@ import type Anthropic from '@anthropic-ai/sdk'
  * stapled-together report with a heading per agent.
  */
 
-const MODEL = 'claude-opus-5'
 const MAX_TOKENS = 16_000
 
 const SYNTHESIS_INSTRUCTIONS = `You are the Orchestrator of a multi-agent workspace,
@@ -37,6 +37,9 @@ export interface SynthesisInput {
   readonly goal: string
   readonly results: readonly { title: string; agentKey: string; result: string }[]
   readonly timezone: string
+  /** The workspace's billing plan decides both. See the planner. */
+  readonly model?: PlanModel
+  readonly effort?: PlanEffort
 }
 
 export async function synthesise(
@@ -52,7 +55,7 @@ export async function synthesise(
     .join('\n\n')
 
   const response = await client.messages.create({
-    model: MODEL,
+    model: input.model ?? 'claude-opus-5',
     max_tokens: MAX_TOKENS,
     system: [
       {
@@ -67,7 +70,7 @@ export async function synthesise(
         content: `The user asked:\n"""\n${input.goal}\n"""\n\nTheir timezone is ${input.timezone}.\n\nWhat the agents found:\n\n${findings}\n\nWrite the answer.`,
       },
     ],
-    output_config: { effort: 'high' },
+    output_config: { effort: input.effort ?? 'high' },
   })
 
   if (response.stop_reason === 'refusal') {

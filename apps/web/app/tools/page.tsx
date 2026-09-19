@@ -125,7 +125,7 @@ export default function ToolsPage() {
         <div className="world__veil" />
       </div>
 
-      <Chrome user={me ? { name: me.user.name, plan: 'Pro plan' } : null} />
+      <Chrome user={me ? { name: me.user.name } : null} />
 
       <section className="tools">
         <header className="tools__head">

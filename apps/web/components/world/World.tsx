@@ -1,8 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AgentInfo } from '@/lib/api'
-import { api } from '@/lib/api'
+import type { AgentInfo, BillingState } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
 import { pointOn, useCoverRect } from '@/lib/coverRect'
 import { useWorld, type AgentView } from '@/lib/store'
 import { VoiceInput } from './VoiceInput'
@@ -411,7 +412,19 @@ export function CommandBar({
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Set when the refusal was about credit, so the error can offer a way out. */
+  const [blocked, setBlocked] = useState(false)
+  const [balance, setBalance] = useState<BillingState | null>(null)
   const input = useRef<HTMLTextAreaElement>(null)
+
+  // What is left, shown before they type rather than after they are refused.
+  // Someone who can see they are on their last goal spends it differently
+  // from someone who finds out by being stopped.
+  const loadBalance = useCallback(() => {
+    api.billing().then(setBalance).catch(() => undefined)
+  }, [])
+
+  useEffect(() => loadBalance(), [loadBalance])
 
   const submit = useCallback(async () => {
     const trimmed = prompt.trim()
@@ -419,17 +432,24 @@ export function CommandBar({
 
     setBusy(true)
     setError(null)
+    setBlocked(false)
     try {
       const { goalId } = await api.submitGoal(trimmed)
       setPrompt('')
       useWorld.getState().beginGoal(goalId, 0, trimmed)
       onStarted(goalId)
+      loadBalance()
     } catch (err) {
+      // 402 is the one refusal with an answer attached, so it gets a link
+      // rather than just a sentence. Every other failure is ours, not theirs.
+      const status = err instanceof ApiError ? err.status : 0
+      setBlocked(status === 402)
       setError(err instanceof Error ? err.message : 'Could not start that')
+      if (status === 402) loadBalance()
     } finally {
       setBusy(false)
     }
-  }, [prompt, busy, onStarted])
+  }, [prompt, busy, onStarted, loadBalance])
 
   const onTranscript = useCallback((text: string) => setPrompt(text), [])
   const onFinal = useCallback(() => input.current?.focus(), [])
@@ -489,11 +509,32 @@ export function CommandBar({
       </div>
 
       {error && (
-        <p role="alert" className="command__error">{error}</p>
+        <p role="alert" className="command__error">
+          {error}
+          {blocked && (
+            <Link href="/pricing" className="command__upgrade">
+              See plans
+            </Link>
+          )}
+        </p>
+      )}
+
+      {/* Only once it starts to matter. A counter reading "300 left" every day
+          is furniture; one reading "1 goal left today" is information. */}
+      {!error && balance && balance.total <= LOW_BALANCE && (
+        <p className="command__left">
+          {balance.total === 0
+            ? 'No goals left right now.'
+            : `${balance.total} goal${balance.total === 1 ? '' : 's'} left.`}{' '}
+          <Link href="/pricing">See plans</Link>
+        </p>
       )}
     </div>
   )
 }
+
+/** Below this, what is left is worth saying out loud. */
+const LOW_BALANCE = 3
 
 /**
  * The mascot on its station.

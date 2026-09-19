@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { api, type HistoryEntry, type Usage } from '@/lib/api'
+import { api, type BillingState, type HistoryEntry, type Usage } from '@/lib/api'
 import { useWorld } from '@/lib/store'
 
 /**
@@ -20,12 +20,32 @@ const NAV = [
   { href: '/history', label: 'History', icon: HistoryIcon },
 ] as const
 
+/**
+ * The plan name, read once and shared.
+ *
+ * It was hardcoded to "Pro plan" in the page that renders this, which was
+ * harmless decoration until a plan actually meant something. Now it is the
+ * difference between a screen the user can trust about their own account and
+ * one they cannot, so it comes from the server or it does not appear.
+ */
+function usePlanLabel(): string {
+  const [label, setLabel] = useState('')
+  useEffect(() => {
+    api
+      .billing()
+      .then((b) => setLabel(`${b.plan.name} plan`))
+      .catch(() => setLabel(''))
+  }, [])
+  return label
+}
+
 export function Chrome({
   user,
 }: {
-  user: { name: string | null; plan?: string } | null
+  user: { name: string | null } | null
 }) {
   const pathname = usePathname()
+  const planLabel = usePlanLabel()
 
   return (
     <>
@@ -69,7 +89,7 @@ export function Chrome({
           </span>
           <span className="profile__who">
             <strong>{user.name ?? 'Signed in'}</strong>
-            <em>{user.plan ?? 'Free plan'}</em>
+            <em>{planLabel}</em>
           </span>
         </div>
       )}
@@ -120,7 +140,7 @@ type Panel = 'search' | 'bell' | 'profile' | null
  * independent popovers that can all be open at once is how a corner like this
  * becomes unusable.
  */
-function TopRight({ user }: { user: { name: string | null; plan?: string } | null }) {
+function TopRight({ user }: { user: { name: string | null } | null }) {
   const [open, setOpen] = useState<Panel>(null)
   const wrap = useRef<HTMLDivElement>(null)
 
@@ -319,14 +339,18 @@ function ProfileMenu({
   user,
   onClose,
 }: {
-  user: { name: string | null; plan?: string } | null
+  user: { name: string | null } | null
   onClose: () => void
 }) {
   const router = useRouter()
   const [usage, setUsage] = useState<Usage | null>(null)
+  const [billing, setBilling] = useState<BillingState | null>(null)
   const [signingOut, setSigningOut] = useState(false)
 
-  useEffect(() => { api.usage().then(setUsage).catch(() => undefined) }, [])
+  useEffect(() => {
+    api.usage().then(setUsage).catch(() => undefined)
+    api.billing().then(setBilling).catch(() => undefined)
+  }, [])
 
   const signOut = useCallback(async () => {
     setSigningOut(true)
@@ -342,9 +366,30 @@ function ProfileMenu({
         <span className="pop__avatar">{(user?.name ?? 'S').charAt(0).toUpperCase()}</span>
         <span>
           <strong>{user?.name ?? 'Signed in'}</strong>
-          <em>{usage?.plan ?? user?.plan ?? 'Free plan'}</em>
+          {/* The plan the server says they are on, not a label the client
+              guessed. A menu that reads "Pro plan" over a free account is the
+              kind of wrong nobody reports and everybody notices. */}
+          <em>{billing ? `${billing.plan.name} plan` : 'Loading…'}</em>
         </span>
       </div>
+
+      {billing && (
+        <section className="wallet">
+          <p className="pop__head">What you have left</p>
+          <p className="wallet__count">
+            <strong>{billing.total.toLocaleString()}</strong>
+            <span>goal{billing.total === 1 ? '' : 's'}</span>
+          </p>
+          <p className="wallet__detail">
+            {billing.freePerDay > 0
+              ? `${billing.freeLeft} of ${billing.freePerDay} free goals left today`
+              : `${billing.credits.toLocaleString()} credits on your ${billing.plan.name} plan`}
+          </p>
+          <Link className="wallet__link" href="/pricing" onClick={onClose}>
+            {billing.plan.key === 'free' ? 'See plans' : 'Add credits'}
+          </Link>
+        </section>
+      )}
 
       <section className="usage">
         <p className="pop__head">This month</p>
@@ -371,10 +416,10 @@ function ProfileMenu({
             </dl>
 
             {/*
-              Activity, not a quota. There is no billing limit in this product
-              yet, so a bar filling toward one would be inventing a number the
-              user could budget against. Each square is a goal that ran, and
-              the lighter ones are the goals that finished.
+              Activity, not a quota - the quota is the block above, which reads
+              from the wallet. Each square is a goal that ran, and the lighter
+              ones are the goals that finished. Two bars racing toward two
+              different limits would just be a puzzle.
             */}
             <div className="usage__grid" aria-hidden="true">
               {Array.from({ length: 28 }, (_, i) => {

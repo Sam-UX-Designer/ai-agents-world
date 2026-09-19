@@ -3113,3 +3113,218 @@ html, body {
     );
   }
 }
+
+/* ===========================================================================
+   Pricing
+   ---------------------------------------------------------------------------
+   A scrolling page rather than a panel over the island. Choosing a plan is the
+   one moment in this product where the world is a distraction: it is a
+   comparison, and a comparison needs a flat surface and room to breathe.
+   =========================================================================== */
+
+.pricing {
+  min-height: 100dvh;
+  padding: clamp(28px, 5vw, 64px) var(--edge) 64px;
+  background: radial-gradient(ellipse at 50% -10%, #17405F 0%, var(--color-ink-900) 55%);
+}
+
+.pricing > * { max-width: 1120px; margin-inline: auto; }
+
+.pricing__head { text-align: center; margin-bottom: clamp(28px, 4vw, 44px); }
+
+.pricing__back {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-bottom: 26px; font-size: 12.5px; text-decoration: none;
+  color: var(--color-text-dim);
+}
+.pricing__back:hover { color: var(--color-text); }
+
+.pricing__head h1 {
+  margin: 0 0 12px;
+  font-size: clamp(27px, 5.2vw, 42px);
+  line-height: 1.12; font-weight: 680; letter-spacing: -0.025em;
+}
+.pricing__head > p {
+  margin: 0 auto 26px; max-width: 460px;
+  font-size: clamp(13.5px, 3vw, 15px); line-height: 1.6;
+  color: var(--color-text-dim);
+}
+
+.pricing__toggle {
+  display: inline-flex; gap: 3px; padding: 3px; border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--glass-border);
+}
+.pricing__toggle button {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border: none; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 560;
+  background: transparent; color: var(--color-text-dim);
+}
+.pricing__toggle button[data-on="true"] {
+  background: var(--color-accent); color: var(--color-ink-900);
+}
+/* The saving is the reason to look at the yearly option at all, so it is
+   legible before the toggle is pressed rather than after. */
+.pricing__toggle button span {
+  padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 640;
+  background: color-mix(in srgb, var(--color-ok) 22%, transparent);
+  color: var(--color-ok);
+}
+.pricing__toggle button[data-on="true"] span {
+  background: rgb(0 0 0 / 0.22); color: var(--color-ink-900);
+}
+
+.pricing__grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  align-items: start;
+}
+
+.plan {
+  position: relative;
+  padding: 22px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--frost-grain), var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* One card is lifted, bordered and badged. A middle option that is visibly
+   recommended is the one most people take, and pretending otherwise just
+   means they take longer to pick the same one. */
+.plan[data-highlight="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+    0 12px 40px color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.plan__badge {
+  position: absolute; top: -10px; left: 20px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--color-accent); color: var(--color-ink-900);
+}
+
+.plan h2 { margin: 0 0 3px; font-size: 16px; font-weight: 650; }
+.plan__tagline {
+  margin: 0 0 16px; min-height: 32px;
+  font-size: 12px; line-height: 1.4; color: var(--color-text-dim);
+}
+
+.plan__price { margin: 0; display: flex; align-items: baseline; gap: 3px; }
+.plan__price strong { font-size: 32px; font-weight: 680; letter-spacing: -0.03em; }
+.plan__price span { font-size: 13px; color: var(--color-text-dim); }
+
+.plan__per { margin: 2px 0 16px; font-size: 11.5px; color: var(--color-text-dim); }
+
+.plan__features { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 9px; }
+.plan__features li {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12.5px; line-height: 1.45;
+}
+.plan__features svg { flex-shrink: 0; margin-top: 2px; color: var(--color-ok); }
+
+/* ------------------------------------------------------------- top-ups -- */
+
+.pricing__packs { margin-top: clamp(40px, 6vw, 64px); text-align: center; }
+.pricing__packs h2 { margin: 0 0 8px; font-size: 19px; font-weight: 640; }
+.pricing__packs > p {
+  margin: 0 auto 20px; max-width: 420px;
+  font-size: 12.5px; line-height: 1.55; color: var(--color-text-dim);
+}
+.pricing__packs ul {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.pricing__packs li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 15px; border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid var(--glass-border);
+}
+.pricing__packs strong { font-size: 13px; font-weight: 580; }
+.pricing__packs em { font-style: normal; font-size: 13px; color: var(--color-text-dim); }
+.pricing__save {
+  padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 640;
+  background: color-mix(in srgb, var(--color-ok) 18%, transparent);
+  color: var(--color-ok);
+}
+.pricing__packs .btn { margin-left: auto; padding: 6px 13px; font-size: 12px; }
+
+/* --------------------------------------------------------------- notes -- */
+
+.pricing__note {
+  margin-top: 22px; padding: 16px 18px; border-radius: var(--radius-md);
+  display: flex; align-items: flex-start; gap: 14px;
+  background: color-mix(in srgb, var(--color-warn) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warn) 26%, transparent);
+}
+.pricing__note p { margin: 0; font-size: 12.5px; line-height: 1.6; }
+.pricing__note .btn { flex-shrink: 0; padding: 6px 13px; font-size: 12px; }
+
+.pricing__faq {
+  margin-top: clamp(40px, 6vw, 64px);
+  max-width: 640px; display: grid; gap: 2px;
+}
+.pricing__q {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgb(255 255 255 / 0.03);
+}
+.pricing__q + .pricing__q { margin-top: 8px; }
+.pricing__q summary {
+  padding: 13px 16px; cursor: pointer; list-style: none;
+  font-size: 13px; font-weight: 560;
+}
+.pricing__q summary::-webkit-details-marker { display: none; }
+.pricing__q summary::after { content: '+'; float: right; color: var(--color-text-dim); }
+.pricing__q[open] summary::after { content: '\2212'; }
+.pricing__q p {
+  margin: 0; padding: 0 16px 14px;
+  font-size: 12.5px; line-height: 1.6; color: var(--color-text-dim);
+}
+
+.pricing__foot {
+  margin-top: 34px; text-align: center;
+  font-size: 11.5px; color: var(--color-text-dim);
+}
+
+@media (max-width: 900px) {
+  .pricing { padding-bottom: calc(var(--nav-h) + 48px); }
+  .plan__tagline { min-height: 0; }
+}
+
+/* A refusal with a way out, and a quiet counter when it starts to matter. */
+.command__error { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.command__upgrade,
+.command__left a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.command__left {
+  margin: 0 0 0 6px;
+  font-size: 11.5px;
+  color: var(--color-text-dim);
+}
+
+/* What is left, in the account menu. The one number a metered product owes
+   the user on every screen they can reach. */
+.wallet {
+  padding: 13px 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+.wallet__count { margin: 4px 0 2px; display: flex; align-items: baseline; gap: 5px; }
+.wallet__count strong { font-size: 24px; font-weight: 680; letter-spacing: -0.02em; }
+.wallet__count span { font-size: 12.5px; color: var(--color-text-dim); }
+.wallet__detail { margin: 0 0 9px; font-size: 11.5px; color: var(--color-text-dim); }
+.wallet__link {
+  font-size: 12px; font-weight: 560; color: var(--color-accent);
+  text-decoration: underline; text-underline-offset: 2px;
+}

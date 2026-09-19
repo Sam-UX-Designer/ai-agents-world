@@ -162,7 +162,7 @@ export default function HistoryPage() {
         <div className="world__veil" />
       </div>
 
-      <Chrome user={me ? { name: me.user.name, plan: 'Pro plan' } : null} />
+      <Chrome user={me ? { name: me.user.name } : null} />
 
       <section className="hist">
         <header className="hist__head">

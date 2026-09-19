@@ -65,7 +65,7 @@ export default function HomePage() {
     <main>
       <World agents={agents} />
 
-      <Chrome user={me ? { name: me.user.name, plan: 'Pro plan' } : null} />
+      <Chrome user={me ? { name: me.user.name } : null} />
 
       {/*
         Right side: who is working, or the one agent you asked about. The

@@ -1,6 +1,6 @@
 'use client'
 
-import type { ProviderDefinition } from '@agents-world/shared'
+import type { BillingPlan, ProviderDefinition } from '@agents-world/shared'
 
 /**
  * What /agents returns.
@@ -119,6 +119,24 @@ export interface Usage {
   plan: string
 }
 
+/** What /billing returns: the whole plan, plus what is left of it. */
+export interface BillingState {
+  plan: BillingPlan
+  freeLeft: number
+  freePerDay: number
+  credits: number
+  total: number
+  resetsAt: string
+  ledger: {
+    id: string
+    delta: number
+    reason: string
+    balanceAfter: number
+    note: string | null
+    at: string
+  }[]
+}
+
 export const api = {
   me: () => request<Me>('/me'),
 
@@ -182,6 +200,8 @@ export const api = {
     }),
 
   usage: () => request<Usage>('/usage'),
+
+  billing: () => request<BillingState>('/billing'),
 
   goal: (id: string) =>
     request<{

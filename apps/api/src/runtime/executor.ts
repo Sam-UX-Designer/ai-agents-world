@@ -5,6 +5,8 @@ import {
 
   type AgentDefinition,
   type AutonomyLevel,
+  type PlanEffort,
+  type PlanModel,
   type ToolEffect,
 } from '@agents-world/shared'
 import type { ToolBinding, ToolContext } from './toolbelt.js'
@@ -24,7 +26,6 @@ import type { ToolBinding, ToolContext } from './toolbelt.js'
  * it was blocked, so it does not reroute around the gate.
  */
 
-const MODEL = 'claude-opus-5'
 const MAX_TOKENS = 16_000
 
 /** Ceiling on model turns. A runaway agent is a cost incident, not a feature. */
@@ -32,6 +33,9 @@ const MAX_ITERATIONS = 20
 
 export interface ExecuteInput {
   readonly agent: AgentDefinition
+  /** The workspace's billing plan decides both. See the planner. */
+  readonly model?: PlanModel
+  readonly effort?: PlanEffort
   /**
    * What this workspace has told this agent, on top of its built-in
    * expertise. Kept separate rather than concatenated so the registry's
@@ -130,7 +134,7 @@ export async function executeTask(
 
     if (!resuming) {
       assistant = await client.messages.create({
-        model: MODEL,
+        model: input.model ?? 'claude-opus-5',
         max_tokens: MAX_TOKENS,
         system: [
           {
@@ -161,7 +165,7 @@ export async function executeTask(
         ...(input.toolbelt.length > 0
           ? { tools: input.toolbelt.map((t) => t.definition) }
           : {}),
-        output_config: { effort: 'high' },
+        output_config: { effort: input.effort ?? 'high' },
       })
 
       inputTokens += assistant.usage.input_tokens

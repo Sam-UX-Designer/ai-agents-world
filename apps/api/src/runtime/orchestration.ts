@@ -4,12 +4,15 @@ import {
   ORCHESTRATOR,
   executionWaves,
   getAgent,
+  getBillingPlan,
   isTaskTerminal,
   type AgentState,
+  type BillingPlan,
   type PlannedTask,
   type TaskState,
 } from '@agents-world/shared'
 import { getInstructions } from '../agents/instructions.js'
+import { refundGoal } from '../billing/wallet.js'
 import { getWorkspace } from '../auth/workspaces.js'
 import { db, schema } from '../db/client.js'
 import { createPlan } from '../orchestrator/planner.js'
@@ -44,6 +47,13 @@ export interface RunGoalInput {
   readonly prompt: string
   readonly timezone: string
   readonly attachedFilenames?: readonly string[]
+  /**
+   * The workspace's billing plan, which decides the model, the effort and how
+   * many agents this goal may use. Passed in rather than looked up here so
+   * the same plan governs the whole run - a plan change mid-goal must not
+   * silently upgrade the model between two waves the user paid one credit for.
+   */
+  readonly billing?: BillingPlan
 }
 
 /** Plan a goal, then execute it. */
@@ -59,11 +69,15 @@ export async function runGoal(
     await setGoalState(input.goalId, 'planning')
     await emitAgentState(bus, base, ORCHESTRATOR.key, null, 'planning', 'Reading your goal')
 
+    const plan = input.billing ?? getBillingPlan('pro')
     const providers = await connectedProviders(input.workspaceId)
     const planResult = await createPlan(deps.client, {
       goal: input.prompt,
       connectedProviders: providers,
       timezone: input.timezone,
+      model: plan.model,
+      effort: plan.effort,
+      maxTasks: plan.maxAgents,
       ...(input.attachedFilenames ? { attachedFiles: input.attachedFilenames } : {}),
     })
 
@@ -142,6 +156,16 @@ export async function resumeGoal(
 
   const identity = new Map(planned.map((t) => [t.id, t.id]))
 
+  // The plan the workspace is on now, not whatever it was on when the goal
+  // started. A resume can be days after the pause, and running the rest of
+  // the goal on a model the workspace no longer pays for is the wrong error
+  // in either direction.
+  const [wallet] = await db()
+    .select({ plan: schema.wallets.plan })
+    .from(schema.wallets)
+    .where(eq(schema.wallets.workspaceId, goal.workspaceId))
+    .limit(1)
+
   await executePlan(
     deps,
     {
@@ -149,6 +173,7 @@ export async function resumeGoal(
       workspaceId: goal.workspaceId,
       prompt: goal.prompt,
       timezone: 'UTC',
+      billing: getBillingPlan(wallet?.plan),
     },
     executionWaves(planned),
     identity,
@@ -215,6 +240,7 @@ async function runTask(
   const base = { goalId: input.goalId, workspaceId: input.workspaceId }
   const taskId = taskIds.get(task.id) ?? task.id
   const agent = getAgent(task.agentKey)
+  const billing = input.billing ?? getBillingPlan('pro')
 
   if (!agent) {
     await markTaskFailed(bus, base, taskId, task.agentKey, `No agent named ${task.agentKey}`)
@@ -274,6 +300,8 @@ async function runTask(
       deps.client,
       {
         agent,
+        model: billing.model,
+        effort: billing.effort,
         customInstructions,
         toolbelt,
         context: { workspaceId: input.workspaceId, timezone: input.timezone },
@@ -432,10 +460,13 @@ async function finishGoal(deps: OrchestrationDeps, input: RunGoalInput): Promise
   )
 
   const results = await loadTaskResults(input.goalId)
+  const billing = input.billing ?? getBillingPlan('pro')
   const summary = await synthesise(deps.client, {
     goal: input.prompt,
     results,
     timezone: input.timezone,
+    model: billing.model,
+    effort: billing.effort,
   })
 
   const [artifact] = await db()
@@ -652,6 +683,15 @@ async function failGoal(
   base: Base,
   error: string,
 ): Promise<void> {
+  // The credit goes back when the run produced nothing.
+  //
+  // Judged on whether any task actually succeeded rather than on where the
+  // failure happened, which covers both shapes of it: a goal that died during
+  // planning never started, and a goal whose every task failed has nothing to
+  // show either. A goal that got some of the way is not refunded - that work
+  // was really done, and really paid for.
+  await refundIfNothingLanded(base, error)
+
   await db()
     .update(schema.goals)
     .set({ state: 'failed', error, completedAt: new Date() })
@@ -679,6 +719,23 @@ async function failGoal(
   await deps.bus
     .emit({ ...base, type: 'goal.state_changed', state: 'failed', error })
     .catch((e) => console.error('[orchestration] failed to emit failure', e))
+}
+
+async function refundIfNothingLanded(base: Base, error: string): Promise<void> {
+  try {
+    const succeeded = await db()
+      .select({ id: schema.tasks.id })
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.goalId, base.goalId), eq(schema.tasks.state, 'succeeded')))
+      .limit(1)
+
+    if (succeeded.length > 0) return
+    await refundGoal(base.workspaceId, base.goalId, error.slice(0, 200))
+  } catch (err) {
+    // A refund that fails is a support ticket, not a second failure to show
+    // the user on top of the one they already have.
+    console.error('[orchestration] could not refund', base.goalId, err)
+  }
 }
 
 const setGoalState = (goalId: string, state: string): Promise<unknown> =>
