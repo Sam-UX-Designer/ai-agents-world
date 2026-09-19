@@ -134,6 +134,76 @@ function useIslandPan(rect: CoverRect) {
 /** Where the Orchestrator stands. Every dispatch line starts here. */
 const HUB_STATION: [number, number] = [0.502, 0.332]
 
+/** The blue a dispatch is drawn in. Matches the sphere it leaves from. */
+const BOLT = '#5ab4ff'
+
+/**
+ * A bolt of lightning from one point to another.
+ *
+ * A dispatch used to be a dot sliding along a straight wire, which reads as a
+ * progress bar laid on its side. Power arriving somewhere does not look like
+ * that. The kinks are what make it read as a discharge rather than as travel,
+ * so they are the whole point of drawing a path instead of a line.
+ *
+ * Returns its own measured length as well, because the stroke-dash trick that
+ * draws it needs a number and `pathLength` is not reliable here - the same
+ * Chromium gap that the straight pulse already works around.
+ */
+function boltPath(
+  from: { left: number; top: number },
+  to: { left: number; top: number },
+  seed: number,
+): { d: string; length: number } {
+  const dx = to.left - from.left
+  const dy = to.top - from.top
+  const span = Math.hypot(dx, dy) || 1
+
+  // The direction a kink travels in: perpendicular to the flight path.
+  const nx = -dy / span
+  const ny = dx / span
+
+  const SEGMENTS = 7
+  // Long hops earn bigger kinks, but only up to a point - past about 16px the
+  // bolt stops looking like it is going anywhere and starts looking like a
+  // scribble.
+  const amplitude = Math.min(16, Math.max(6, span * 0.045))
+
+  const points = [from]
+  for (let i = 1; i < SEGMENTS; i++) {
+    const t = i / SEGMENTS
+    // Taper to nothing at both ends. However wild the middle gets, the bolt
+    // still leaves the hub and lands on the station exactly, which is the
+    // part that has to stay true.
+    const taper = Math.sin(t * Math.PI)
+    /*
+     * Deterministic, not random.
+     *
+     * A bolt that re-rolled its kinks on every React render would flicker
+     * whenever anything else on the island changed - motion the data never
+     * asked for. Seeding from the route's own id gives each dispatch its own
+     * shape and gives that shape for as long as the dispatch lasts.
+     */
+    const wobble = Math.sin(seed * 12.9898 + i * 78.233) % 1
+    const off = wobble * amplitude * taper
+    points.push({
+      left: from.left + dx * t + nx * off,
+      top: from.top + dy * t + ny * off,
+    })
+  }
+  points.push(to)
+
+  let length = 0
+  for (let i = 1; i < points.length; i++) {
+    length += Math.hypot(points[i]!.left - points[i - 1]!.left, points[i]!.top - points[i - 1]!.top)
+  }
+
+  const d = points
+    .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${pt.left.toFixed(1)} ${pt.top.toFixed(1)}`)
+    .join(' ')
+
+  return { d, length }
+}
+
 /**
  * The dispatch animation.
  *
@@ -231,46 +301,33 @@ function Routes({
           const agent = agents.find((a) => a.key === route.agentKey)
           if (!agent) return null
           const to = pointOn(rect, agent.zone.station as [number, number])
-          /*
-           * The dash is sized in real pixels from the line's own length.
-           *
-           * `pathLength="1"` would be the tidy way to normalise this, but
-           * Chromium does not honour it on a <line>: the dash silently never
-           * rendered. Measuring here also means a short hop and a long one
-           * both travel in the same 1.4s, which is what makes the animation
-           * read as a handover rather than as a distance.
-           */
-          const length = Math.hypot(to.left - hub.left, to.top - hub.top)
+          const bolt = boltPath(hub, to, route.id)
 
           return (
-            <g key={route.id} style={{ ['--len' as string]: `${length}px` }}>
-              {/* The path itself, faint: context for the pulse. */}
-              <line
-                className="routes__line"
-                x1={hub.left} y1={hub.top} x2={to.left} y2={to.top}
-                stroke={agent.accent}
-              />
-              {/* The travelling light - the task itself moving. */}
-              <line
-                className="routes__pulse"
-                x1={hub.left} y1={hub.top} x2={to.left} y2={to.top}
-                stroke={agent.accent}
-              />
-              {/* The head of it. The island's artwork already has blue paths
-                  painted between the buildings, and a thin moving dash simply
-                  disappears into them - a bright dot does not. */}
-              <circle
-                className="routes__dot"
-                cx={hub.left} cy={hub.top} r={7}
-                fill={agent.accent}
-                style={{
-                  ['--dx' as string]: `${to.left - hub.left}px`,
-                  ['--dy' as string]: `${to.top - hub.top}px`,
-                }}
-              />
+            <g
+              key={route.id}
+              style={{ ['--len' as string]: `${bolt.length}px` }}
+            >
+              {/* The discharge, in three passes over one path: a wide haze
+                  that lights the ground under it, the bolt itself, and a thin
+                  white core. One stroke at one width reads as a drawn line;
+                  it is the hot centre inside a glow that reads as power. */}
+              <path className="routes__bolt routes__bolt--haze" d={bolt.d} />
+              <path className="routes__bolt" d={bolt.d} />
+              <path className="routes__bolt routes__bolt--core" d={bolt.d} />
+
+              {/*
+                The strike landing.
+
+                Without it the bolt arrives and simply stops, which reads as
+                the animation ending rather than as the task being handed
+                over. The flash is the moment the agent receives it.
+              */}
+              <circle className="routes__strike" cx={to.left} cy={to.top} r={6} />
             </g>
           )
         })}
+
       </svg>
     </div>
   )
@@ -326,6 +383,24 @@ function Markers({
                 uploaded render when one exists and a soft glow until then, so
                 dropping a file into public/mascots/ is the only step needed. */}
             <Mascot agentKey={agent.key} state={view?.state ?? 'idle'} />
+
+            {/*
+              The station pinging while its agent works.
+
+              The robots are painted into the artwork, so the one standing
+              here cannot itself be animated without redrawing it. Light can
+              be added over it though, and light is what the eye catches at
+              this size: two rings leaving the station on a stagger, which
+              reads as the place being active rather than as a badge stuck to
+              it. Rendered only while the agent is genuinely in an active
+              state - no run, no rings.
+            */}
+            {busy && (
+              <>
+                <span className="station__ping" aria-hidden="true" />
+                <span className="station__ping station__ping--late" aria-hidden="true" />
+              </>
+            )}
 
             <button
               className="marker"

@@ -33,6 +33,17 @@ design.png
 - **Facing forward or three-quarter.** These are viewed from an elevated
   isometric angle, so a straight side profile reads oddly.
 
+## What they do once they are here
+
+While its agent is working, the character lifts and settles on a slow loop and
+picks up a blue rim light. That is the only way the robot itself can be made to
+move: the ones painted into `world/island-hero.png` are part of the picture, so
+animating one would mean cutting it out and redrawing what is behind it, which
+is not something this repo does to supplied artwork.
+
+Until a file is here, the station shows the light instead — a ring leaving it
+on a loop, which is legible from across the island but is not the robot moving.
+
 ## Until they exist
 
 Each station shows a soft glow instead — deliberately not a robot silhouette,
