@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Backdrop } from '@/components/world/Backdrop'
 
 /**
  * Landing.
@@ -9,17 +10,12 @@ import Link from 'next/link'
  */
 export default function LandingPage() {
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: '48px 20px',
-        background:
-          'radial-gradient(ellipse at 50% -10%, #17405F 0%, var(--color-ink-900) 58%)',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 620, textAlign: 'center' }}>
+    <main className="landing">
+      {/* The island is the product. Showing it before the copy explains it is
+          the shortest version of the pitch. */}
+      <Backdrop />
+
+      <div className="landing__inner">
         <h1
           style={{
             margin: '0 0 14px',

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { Backdrop } from '@/components/world/Backdrop'
 
 /**
  * Sign in and create an account.
@@ -119,6 +120,17 @@ export default function SignInPage() {
 
   return (
     <main className="auth">
+      {/*
+        The same island as the rest of the product, behind the card.
+        Signing in is the first screen anyone sees, and a plain gradient
+        there makes the world look like something bolted on afterwards.
+        The veil over it is theme-aware - see --auth-veil - so the light
+        theme washes the artwork pale rather than putting dark text on a
+        dark sea.
+      */}
+      <Backdrop veil={false} />
+      <div className="auth__veil" aria-hidden="true" />
+
       <button
         className="auth__theme"
         onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}

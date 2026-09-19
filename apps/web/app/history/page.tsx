@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, type AgentInfo, type HistoryEntry, type Me } from '@/lib/api'
+import { Backdrop } from '@/components/world/Backdrop'
 import { Chrome } from '@/components/world/Chrome'
 import { CommandBar } from '@/components/world/World'
 import { ToolChip, agentLabel } from '@/components/history/parts'
@@ -157,10 +158,7 @@ export default function HistoryPage() {
 
   return (
     <main>
-      <div className="world" aria-hidden="true">
-        <img className="world__art" src="/world/history-bg.png" alt="" />
-        <div className="world__veil" />
-      </div>
+      <Backdrop src="/world/history-bg.png" />
 
       <Chrome user={me ? { name: me.user.name } : null} />
 

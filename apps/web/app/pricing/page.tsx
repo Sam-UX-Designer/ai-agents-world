@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { Backdrop } from '@/components/world/Backdrop'
 import {
   BILLING_PLANS,
   TOP_UP_PACKS,
@@ -38,6 +39,8 @@ export default function PricingPage() {
 
   return (
     <main className="pricing">
+      <Backdrop />
+
       <header className="pricing__head">
         <Link href="/world" className="pricing__back">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">

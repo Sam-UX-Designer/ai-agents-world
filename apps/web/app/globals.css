@@ -1852,6 +1852,10 @@ html, body {
   --auth-social-border: rgb(255 255 255 / 0.14);
   --auth-social-hover: rgb(255 255 255 / 0.11);
   --auth-text: #F2F7FF;
+  /* Dark enough for the card to sit forward of the island, open enough that
+     you can still see where you are. */
+  --auth-veil:
+    radial-gradient(110% 80% at 50% 38%, rgb(4 8 16 / 0.52) 0%, rgb(4 8 16 / 0.86) 100%);
   --auth-dim: #A9BFDA;
   --auth-rule: rgb(255 255 255 / 0.10);
 }
@@ -1870,6 +1874,11 @@ html, body {
   /* 14.8:1 on the card above - the light theme is where contrast usually
      quietly fails, so this is the darker end of comfortable rather than grey. */
   --auth-text: #0C1626;
+  /* The same artwork, washed almost white. Without this the light theme puts
+     near-black text over a dark sea, which is the one way to make a theme
+     toggle actively worse than not having one. */
+  --auth-veil:
+    radial-gradient(110% 80% at 50% 38%, rgb(244 247 252 / 0.84) 0%, rgb(244 247 252 / 0.95) 100%);
   --auth-dim: #55677F;
   --auth-rule: rgb(12 28 56 / 0.10);
 }
@@ -1881,11 +1890,25 @@ html, body {
   display: grid;
   place-items: center;
   padding: 32px 20px;
+  /* The gradient is the fallback the island covers - it still shows for the
+     moment before the artwork decodes, and if the file is ever missing. */
   background: var(--auth-bg);
   color: var(--auth-text);
   /* Long enough to read as a deliberate change, short enough not to wait. */
   transition: background 420ms ease, color 240ms ease;
 }
+
+.auth__veil {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--auth-veil);
+  transition: background 420ms ease;
+}
+
+/* The card and the theme button ride above both the island and its veil. */
+.auth > *:not(.world):not(.auth__veil) { position: relative; z-index: 1; }
 
 .auth__card {
   width: 100%;
@@ -3125,10 +3148,22 @@ html, body {
 .pricing {
   min-height: 100dvh;
   padding: clamp(28px, 5vw, 64px) var(--edge) 64px;
-  background: radial-gradient(ellipse at 50% -10%, #17405F 0%, var(--color-ink-900) 55%);
 }
 
-.pricing > * { max-width: 1120px; margin-inline: auto; }
+/*
+ * Above the island, which is fixed at z-index 0 and scrolls under this.
+ *
+ * The backdrop is excluded by name. It is a child of this element, so the
+ * bare `> *` this used to be turned its `position: fixed` into `relative` and
+ * clamped it to 1120px - the island stopped being the background and became a
+ * boxed photograph at the top of the page, pushing everything down.
+ */
+.pricing > *:not(.world) {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin-inline: auto;
+}
 
 .pricing__head { text-align: center; margin-bottom: clamp(28px, 4vw, 44px); }
 
@@ -3327,4 +3362,68 @@ html, body {
 .wallet__link {
   font-size: 12px; font-weight: 560; color: var(--color-accent);
   text-decoration: underline; text-underline-offset: 2px;
+}
+
+
+/* ===========================================================================
+   Landing
+   ---------------------------------------------------------------------------
+   The island first, the explanation over it. Someone who has never seen this
+   product learns more from one look at the world than from the three steps
+   underneath, so the artwork is not decoration here - it is the argument.
+   =========================================================================== */
+
+.landing {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 48px 20px;
+  background: radial-gradient(ellipse at 50% -10%, #17405F 0%, var(--color-ink-900) 58%);
+}
+
+.landing__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 620px;
+  text-align: center;
+}
+
+/*
+ * A heavier veil, for the pages that put words in the middle of the frame.
+ *
+ * On Home the centre is deliberately clear, because nothing sits there - the
+ * panels live at the edges. Landing and Pricing are the opposite: the headline
+ * is dead centre, over the brightest part of the artwork, and white text on
+ * sunlit sand is not text. This darkens the middle enough to read and still
+ * leaves the island plainly visible, which is the whole reason it is here.
+ */
+.landing .world__veil,
+.pricing .world__veil {
+  background:
+    radial-gradient(70% 55% at 50% 45%, rgb(4 8 16 / 0.62) 0%, rgb(4 8 16 / 0.28) 70%, transparent 100%),
+    radial-gradient(120% 80% at 50% 42%, transparent 30%, rgb(4 8 16 / 0.48) 100%),
+    /* The top band carries the heading and the sentence under it, both of
+       which land on open water and sunlit rock. It is the one stretch that
+       needs to be darker than taste alone would make it. */
+    linear-gradient(to bottom, rgb(4 8 16 / 0.72) 0%, rgb(4 8 16 / 0.42) 26%, transparent 46%, transparent 62%, rgb(4 8 16 / 0.66) 100%);
+}
+
+/*
+ * The intro line, brighter than the dim token.
+ *
+ * --color-text-dim is tuned for glass panels, which sit on their own frosted
+ * surface. These two sentences sit on the artwork itself, where the same grey
+ * is a suggestion rather than a sentence.
+ */
+.landing__inner > p,
+.pricing__head > p {
+  color: rgb(226 236 250 / 0.94);
+  text-shadow: 0 1px 12px rgb(4 8 16 / 0.55);
+}
+
+.landing__inner h1,
+.pricing__head h1 {
+  text-shadow: 0 2px 22px rgb(4 8 16 / 0.6);
 }

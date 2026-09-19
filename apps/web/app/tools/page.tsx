@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, type IntegrationInfo, type Me } from '@/lib/api'
+import { Backdrop } from '@/components/world/Backdrop'
 import { Chrome } from '@/components/world/Chrome'
 import { CommandBar } from '@/components/world/World'
 import { ToolCard } from '@/components/tools/ToolCard'
@@ -120,10 +121,7 @@ export default function ToolsPage() {
   return (
     <main>
       {/* The world, full-bleed behind everything. */}
-      <div className="world" aria-hidden="true">
-        <img className="world__art" src="/world/tools-bg.png" alt="" />
-        <div className="world__veil" />
-      </div>
+      <Backdrop src="/world/tools-bg.png" />
 
       <Chrome user={me ? { name: me.user.name } : null} />
 
