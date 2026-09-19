@@ -130,6 +130,14 @@ html, body {
  * No max-width, no aspect-ratio box, no border, no radius - those are what
  * turn an environment back into a picture.
  */
+/* <picture> wraps the <img>, so it has to carry the same box or the
+   cover-fit has nothing to fill. */
+.world picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .world__art {
   width: 100%;
   height: 100%;

@@ -24,8 +24,51 @@ export function Backdrop({
 }) {
   return (
     <div className="world" aria-hidden="true">
-      <img className="world__art" src={src} alt="" />
+      <WorldArt src={src} />
       {veil && <div className="world__veil" />}
     </div>
+  )
+}
+
+/**
+ * The artwork itself, WebP first.
+ *
+ * The PNG stays the asset of record - it is what the owner uploaded and what
+ * the WebP is generated from, losslessly, at build time. So this is a smaller
+ * container for identical pixels, not a different picture.
+ *
+ * <picture> here negotiates FORMAT, and nothing else. A browser too old for
+ * WebP skips the <source> and loads the PNG. It is not an error fallback: a
+ * 404 on the <source> renders a broken image and the <img> is never reached -
+ * measured, not assumed. The build guarantees the file exists instead, and
+ * fails if it cannot.
+ *
+ * Exported because Home's live world needs the same two lines, and a second
+ * copy of them is how one screen ends up quietly serving the 3 MB version.
+ */
+export function WorldArt({
+  src,
+  className = 'world__art',
+  onError,
+}: {
+  /** The PNG path. The WebP is derived from it. */
+  src: string
+  className?: string
+  onError?: () => void
+}) {
+  return (
+    <picture>
+      <source srcSet={src.replace(/\.png$/, '.webp')} type="image/webp" />
+      <img
+        className={className}
+        src={src}
+        alt=""
+        // The first paint on the landing page is this image. Telling the
+        // browser that beats letting it discover it halfway down the queue.
+        fetchPriority="high"
+        decoding="async"
+        {...(onError ? { onError } : {})}
+      />
+    </picture>
   )
 }

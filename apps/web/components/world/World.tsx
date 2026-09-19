@@ -6,6 +6,7 @@ import type { AgentInfo, BillingState } from '@/lib/api'
 import { ApiError, api } from '@/lib/api'
 import { pointOn, useCoverRect } from '@/lib/coverRect'
 import { useWorld, type AgentView } from '@/lib/store'
+import { WorldArt } from './Backdrop'
 import { VoiceInput } from './VoiceInput'
 
 /**
@@ -43,12 +44,7 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
         {artworkMissing ? (
           <MissingArtwork />
         ) : (
-          <img
-            className="world__art"
-            src={HERO_IMAGE}
-            alt=""
-            onError={() => setArtworkMissing(true)}
-          />
+          <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
         )}
         {/* Readability veil. Weighted to the corners and the bottom, where the
             panels and the command bar sit, so the middle of the island - the

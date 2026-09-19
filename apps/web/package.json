@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "pnpm --filter @agents-world/shared build && next build",
+    "build": "node scripts/optimize-world-art.mjs && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },
@@ -21,6 +21,7 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.9.3"
   }

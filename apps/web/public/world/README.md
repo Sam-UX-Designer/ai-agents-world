@@ -14,10 +14,28 @@ colour treatment so moving between them feels like moving around one place.
 All three are wired up and 1672x941 (16:9). Each surface shows a panel naming
 its path if the file is ever missing, rather than a broken image.
 
-They are 2-3 MB each as PNG, which is heavy for a first paint - the Home hero
-is the first thing a visitor downloads. Re-exporting as WebP at the same visual
-quality typically cuts that 4-6x; the only change needed is the file extension
-in `HERO_IMAGE` (`components/world/World.tsx`) and in the two page files.
+## Upload the PNG. The WebP takes care of itself.
+
+Replace the `.png` and push - nothing else. `scripts/optimize-world-art.mjs`
+runs on every build and re-encodes each PNG here as a `.webp` beside it, and
+the page asks for the WebP first with the PNG as its fallback.
+
+The re-encode is **lossless**: identical pixels in a smaller container, around
+20-25% off these files. Nothing in the build ever degrades artwork.
+
+Do not hand-edit the `.webp` files, and do not delete a `.png` - the PNG is the
+asset of record and the input the WebP is made from. It is also what a browser
+too old for WebP loads instead.
+
+If a WebP cannot be produced, the build **fails** rather than deploying. That
+is deliberate: a missing WebP renders a broken image, it does not quietly fall
+back to the PNG, so a red build is the only outcome that cannot ship a hole
+where the island should be.
+
+Lossy WebP would cut these about 6x rather than 1.3x, at a difference that is
+invisible at viewing size and measurable only by zooming in. That is a
+decision for whoever owns the artwork, not for the build - change `QUALITY` in
+the script if it is ever made.
 
 **Tools and History** backgrounds sit much further back than Home - in the
 reference they are a distant island under cloud, with the content reading over
