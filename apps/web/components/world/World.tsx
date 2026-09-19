@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentInfo, BillingState } from '@/lib/api'
 import { ApiError, api } from '@/lib/api'
-import { pointOn, useCoverRect } from '@/lib/coverRect'
+import { pointOn, useCoverRect, type CoverRect } from '@/lib/coverRect'
 import { useWorld, type AgentView } from '@/lib/store'
 import { WorldArt } from './Backdrop'
 import { VoiceInput } from './VoiceInput'
@@ -38,13 +38,21 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
   const [artworkMissing, setArtworkMissing] = useState(false)
   const rect = useCoverRect(ISLAND_ASPECT)
 
+  const goalId = useWorld((s) => s.goalId)
+  const goalState = useWorld((s) => s.goalState)
+  const running =
+    goalId !== null && goalState !== 'completed' && goalState !== 'failed'
+
   return (
     <>
       <div className="world" aria-hidden={artworkMissing ? undefined : 'true'}>
         {artworkMissing ? (
           <MissingArtwork />
         ) : (
-          <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
+          <>
+            <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
+            <Orb rect={rect} running={running} />
+          </>
         )}
         {/* Readability veil. Weighted to the corners and the bottom, where the
             panels and the command bar sit, so the middle of the island - the
@@ -128,7 +136,6 @@ function Routes({
       {(running || routes.length > 0) && (
         <span className="routes__core" style={{ left: hub.left, top: hub.top }}>
           <span className="routes__hub" data-thinking={thinking} />
-          {running && <span className="routes__spin" />}
         </span>
       )}
 
@@ -553,6 +560,59 @@ export function CommandBar({
 
 /** Below this, what is left is worth saying out loud. */
 const LOW_BALANCE = 3
+
+/*
+ * The orb at the hub, turning.
+ *
+ * The orb is painted into the artwork, so there is no object here to animate -
+ * only pixels. This lifts the exact circle of the artwork the orb occupies,
+ * lays it back down in the same place, and rotates that. Nothing is drawn,
+ * generated or replaced: it is the owner's own render, turning.
+ *
+ * ORB is measured from the file, not guessed - centre and radius as fractions
+ * of the image width, so it stays on the orb at every viewport shape the way
+ * the station markers do. The radius is deliberately a shade inside the orb's
+ * rim: a circle even slightly too large takes the platform with it, and a
+ * rotating platform is instantly wrong.
+ *
+ * A fixed highlight was laid over this at first, on the theory that a rotating
+ * specular would read as the sun orbiting the island. It does not: the orb is
+ * itself a light source, so its bright spots read as energy moving inside the
+ * glass. All the overlay did was add haze, so it is gone.
+ *
+ * If the image fails to load this element is simply transparent and the
+ * artwork's own static orb shows through - the right way for an ornament to
+ * fail.
+ */
+const ORB = { cx: 0.5006, cy: 0.3337, r: 0.0245 } as const
+
+function Orb({ rect, running }: { rect: CoverRect; running: boolean }) {
+  if (rect.width === 0) return null
+
+  const centre = pointOn(rect, [ORB.cx, ORB.cy])
+  const radius = ORB.r * rect.width
+  const size = radius * 2
+
+  return (
+    <span
+      className="orb"
+      data-running={running}
+      aria-hidden="true"
+      style={{
+        left: centre.left - radius,
+        top: centre.top - radius,
+        width: size,
+        height: size,
+        // The WebP the page is already showing, so this is the same pixels
+        // rather than a second download.
+        backgroundImage: `url(${HERO_IMAGE.replace(/\.png$/, '.webp')})`,
+        backgroundSize: `${rect.width}px ${rect.height}px`,
+        // Line the artwork's orb up with the middle of this element.
+        backgroundPosition: `${radius - ORB.cx * rect.width}px ${radius - ORB.cy * rect.height}px`,
+      }}
+    />
+  )
+}
 
 /**
  * The mascot on its station.

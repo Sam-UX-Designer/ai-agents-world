@@ -1918,26 +1918,6 @@ html, body {
   width: 0; height: 0;
 }
 
-/*
- * A dark track for the ring to turn in.
- *
- * The artwork under the hub is the brightest, busiest part of the island - a
- * lit sphere on white architecture. A glowing arc on top of that is an arc on
- * top of a glow, and it reads as more of the same. Seating it in a darker
- * groove gives it something to be brighter than, which is the only way a thin
- * moving line survives a background like this.
- */
-.routes__core::before {
-  content: '';
-  position: absolute;
-  width: 188px; height: 188px;
-  margin: -94px 0 0 -94px;
-  border-radius: 50%;
-  background: rgb(6 14 28 / 0.5);
-  mask: radial-gradient(circle closest-side, transparent 76%, #000 81%, #000 96%, transparent 100%);
-  -webkit-mask: radial-gradient(circle closest-side, transparent 76%, #000 81%, #000 96%, transparent 100%);
-}
-
 .routes__hub {
   position: absolute;
   width: 132px; height: 132px;
@@ -1955,60 +1935,6 @@ html, body {
  * sphere in the artwork is lit, and a hard-edged dashed circle over it looks
  * like a widget someone dropped on the island.
  */
-.routes__spin {
-  position: absolute;
-  /* Wider than the sphere in the artwork, not on top of it. At 116px the ring
-     sat inside the sphere's own glow and disappeared into it - the reported
-     symptom was that nothing looked like it was turning. It orbits now. */
-  width: 188px; height: 188px;
-  margin: -94px 0 0 -94px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgb(215 240 255 / 1) 38deg,
-    rgb(110 195 255 / 0.72) 74deg,
-    transparent 116deg,
-    transparent 182deg,
-    rgb(200 235 255 / 0.85) 216deg,
-    transparent 266deg
-  );
-  /*
-   * A thin ring, so the island shows through the middle.
-   *
-   * `closest-side` is load-bearing. A bare `circle` sizes to farthest-corner,
-   * which on a square box is 1.41x the radius - so every stop here landed
-   * outside the element and the ring rendered only in the corners, which is to
-   * say nowhere. It measured as present and visible the whole time.
-   */
-  mask: radial-gradient(circle closest-side, transparent 76%, #000 81%, #000 96%, transparent 100%);
-  -webkit-mask: radial-gradient(circle closest-side, transparent 76%, #000 81%, #000 96%, transparent 100%);
-  filter: drop-shadow(0 0 9px rgb(120 200 255 / 0.9));
-  animation: hub-spin 2.4s linear infinite;
-}
-
-/* A second ring, inside and turning the other way. One ring at one speed
-   reads as a loading spinner - a thing that is waiting. Two, opposed, read as
-   a thing that is working. */
-.routes__spin::after {
-  content: '';
-  position: absolute;
-  inset: 26px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 90deg,
-    transparent 0deg,
-    rgb(190 235 255 / 0.8) 34deg,
-    transparent 76deg
-  );
-  mask: radial-gradient(circle closest-side, transparent 72%, #000 78%, #000 96%, transparent 100%);
-  -webkit-mask: radial-gradient(circle closest-side, transparent 72%, #000 78%, #000 96%, transparent 100%);
-  animation: hub-spin 1.6s linear infinite reverse;
-}
-
-@keyframes hub-spin {
-  to { transform: rotate(360deg); }
-}
 .routes__hub[data-thinking="true"] { animation: hub-think 1.5s ease-in-out infinite; }
 .routes__hub[data-thinking="false"] { animation: hub-think 1.5s ease-in-out 2; }
 
@@ -2034,8 +1960,6 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   /* The dispatch still appears and still clears; it just does not travel. */
   .routes__line, .routes__pulse, .routes__dot, .routes__hub { animation-duration: .001ms !important; }
-  /* The ring still says "thinking" - it just stops turning. */
-  .routes__spin, .routes__spin::after { animation: none; }
   .marker[data-state="working"], .marker[data-state="planning"],
   .marker[data-state="spawning"] { animation: none; }
 }
@@ -3564,4 +3488,45 @@ html, body {
     background:
       linear-gradient(to bottom, rgb(4 8 16 / 0.72) 0%, rgb(4 8 16 / 0.6) 40%, rgb(4 8 16 / 0.72) 100%);
   }
+}
+
+/* ===========================================================================
+   The orb at the hub
+   ---------------------------------------------------------------------------
+   The orb is painted into the artwork, so there is no object to animate - only
+   pixels. This element is that exact circle of the artwork, laid back down in
+   the same place and turned. Nothing is drawn, generated or replaced: it is
+   the owner's own render, rotating.
+
+   It sits inside .world, which is where the artwork's own `scale(1.012)`
+   applies, so the two stay in register at every viewport shape.
+   =========================================================================== */
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  /*
+   * Feathered at the rim rather than cut. A hard circle over a soft painted
+   * highlight shows as a seam the moment it turns - but only just feathered:
+   * at 82% the fade ate enough of the orb to leave it visibly milkier than the
+   * artwork underneath, which is the one thing this must never be.
+   */
+  mask: radial-gradient(circle closest-side, #000 90%, transparent 100%);
+  -webkit-mask: radial-gradient(circle closest-side, #000 90%, transparent 100%);
+  /* Matches the artwork's own scale so the two never drift apart. */
+  transform: scale(1.012);
+  will-change: transform;
+}
+
+.orb[data-running="true"] {
+  animation: orb-turn 9s linear infinite;
+}
+
+@keyframes orb-turn {
+  from { transform: scale(1.012) rotate(0deg); }
+  to   { transform: scale(1.012) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb[data-running="true"] { animation: none; }
 }
