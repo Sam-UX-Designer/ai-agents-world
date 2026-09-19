@@ -5,6 +5,10 @@ import { db, schema } from '../db/client.js'
 /**
  * Credit: what a workspace may spend, and the record of it spending.
  *
+ * One credit buys one goal. The user only ever sees "credits" - "goal" is
+ * what they type, and a balance counted in the same word as the thing they
+ * type reads as a to-do list rather than money.
+ *
  * One rule shapes everything here: the check happens before Claude is called,
  * never after. A balance read once a goal has already run is not a limit, it
  * is a receipt - the money is gone either way. So `spendForGoal` is the gate,
@@ -22,13 +26,13 @@ const PERIOD_MS = 30 * DAY_MS
 
 export interface Balance {
   readonly plan: BillingPlan
-  /** Free goals left today. */
+  /** Free credits left today. */
   readonly freeLeft: number
-  /** Free goals this plan gives each day. Zero on paid plans. */
+  /** Free credits this plan gives each day. Zero on paid plans. */
   readonly freePerDay: number
   /** Paid credits in hand, carried over and topped up. */
   readonly credits: number
-  /** freeLeft + credits. What the user can actually run right now. */
+  /** freeLeft + credits. What the user can actually spend right now. */
   readonly total: number
   readonly resetsAt: string
 }
@@ -94,7 +98,7 @@ async function loadWallet(workspaceId: string) {
   // The monthly allowance on a paid plan. Granted, not set: credits a user
   // paid for and did not use are theirs, and a plan that silently truncated
   // the balance every month would be taking them back.
-  const monthly = plan.goalsPerMonth
+  const monthly = plan.creditsPerMonth
   const periodDue =
     monthly !== null &&
     (!wallet.periodStartedAt || wallet.periodStartedAt.getTime() + PERIOD_MS <= now)
@@ -129,7 +133,7 @@ async function loadWallet(workspaceId: string) {
 export async function balanceOf(workspaceId: string): Promise<Balance> {
   const wallet = await loadWallet(workspaceId)
   const plan = getBillingPlan(wallet.plan)
-  const freePerDay = plan.goalsPerDay ?? 0
+  const freePerDay = plan.creditsPerDay ?? 0
   const freeLeft = Math.max(0, freePerDay - wallet.dailyUsed)
 
   return {
@@ -160,7 +164,7 @@ export async function spendForGoal(
 ): Promise<SpendResult> {
   const wallet = await loadWallet(workspaceId)
   const plan = getBillingPlan(wallet.plan)
-  const freePerDay = plan.goalsPerDay ?? 0
+  const freePerDay = plan.creditsPerDay ?? 0
 
   if (freePerDay > 0) {
     const [used] = await db()
@@ -306,13 +310,13 @@ function outOfCreditMessage(plan: BillingPlan, freePerDay: number, resetsAt: Dat
   if (freePerDay > 0) {
     const hours = Math.max(1, Math.ceil((resetsAt.getTime() - Date.now()) / (60 * 60 * 1000)))
     return (
-      `You have used today's ${freePerDay} free goals. ` +
+      `You have used today's ${freePerDay} free credits. ` +
       `You get ${freePerDay} more in about ${hours} hour${hours === 1 ? '' : 's'}, ` +
       'or upgrade for more right now.'
     )
   }
   return (
-    `Your ${plan.name} plan has no goals left this month. ` +
+    `Your ${plan.name} plan has no credits left this month. ` +
     'Add a credit pack or move up a plan to keep going.'
   )
 }

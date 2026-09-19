@@ -1,6 +1,13 @@
 /**
  * What each plan includes, in one place.
  *
+ * The unit the user sees is a CREDIT, and one credit buys one goal. Two words
+ * for one thing would be a bug in the product: "goal" is already what you type
+ * into the command bar, so using it as the currency as well means "3 goals
+ * left" reads as a to-do list rather than a balance. Credit is also the word
+ * every comparable product uses, and it survives a future where a large goal
+ * costs more than one.
+ *
  * Every number here is a business decision, not an implementation detail, so
  * they live together and are read by the API (to enforce them) and the web app
  * (to display them) from the same source. Changing a price or an allowance is
@@ -43,10 +50,10 @@ export interface BillingPlan {
    * everyone recognises and the one that is easiest to explain.
    */
   readonly yearlyUsd: number
-  /** Goals included per month. Null on free, which is a daily allowance. */
-  readonly goalsPerMonth: number | null
-  /** Goals per day, refreshed every 24h. Only the free plan uses this. */
-  readonly goalsPerDay: number | null
+  /** Credits included per month. Null on free, which is a daily allowance. */
+  readonly creditsPerMonth: number | null
+  /** Credits per day, refreshed every 24h. Only the free plan uses this. */
+  readonly creditsPerDay: number | null
   readonly model: PlanModel
   readonly effort: PlanEffort
   /** Most goals a plan may split across this many agents. */
@@ -79,8 +86,8 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     tagline: 'See what a workforce feels like.',
     monthlyUsd: 0,
     yearlyUsd: 0,
-    goalsPerMonth: null,
-    goalsPerDay: 5,
+    creditsPerMonth: null,
+    creditsPerDay: 5,
     // Haiku, one agent. A free goal has to cost cents, not rupees, or a
     // hundred signups is a bill rather than a pipeline.
     model: 'claude-haiku-4-5',
@@ -88,7 +95,7 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     maxAgents: 1,
     seats: 1,
     features: [
-      '5 goals a day, every day',
+      '5 credits a day, every day',
       'One agent per goal',
       'Full 3D world and history',
       'No card needed',
@@ -100,14 +107,14 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     tagline: 'For one person with real work.',
     monthlyUsd: 19,
     yearlyUsd: 16,
-    goalsPerMonth: 100,
-    goalsPerDay: null,
+    creditsPerMonth: 100,
+    creditsPerDay: null,
     model: 'claude-sonnet-5',
     effort: 'medium',
     maxAgents: 3,
     seats: 1,
     features: [
-      '100 goals a month',
+      '100 credits a month',
       'Up to 3 agents per goal',
       'Connect Gmail, Calendar and Slack',
       'Agent instructions',
@@ -119,14 +126,14 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     tagline: 'The full workforce, thinking hard.',
     monthlyUsd: 49,
     yearlyUsd: 41,
-    goalsPerMonth: 300,
-    goalsPerDay: null,
+    creditsPerMonth: 300,
+    creditsPerDay: null,
     model: 'claude-opus-5',
     effort: 'high',
     maxAgents: 6,
     seats: 3,
     features: [
-      '300 goals a month',
+      '300 credits a month',
       'Up to 6 agents per goal',
       'Claude Opus on every agent',
       '3 seats included',
@@ -140,14 +147,14 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     tagline: 'A department, not a person.',
     monthlyUsd: 199,
     yearlyUsd: 166,
-    goalsPerMonth: 1_500,
-    goalsPerDay: null,
+    creditsPerMonth: 1_500,
+    creditsPerDay: null,
     model: 'claude-opus-5',
     effort: 'high',
     maxAgents: 8,
     seats: 10,
     features: [
-      '1,500 goals a month',
+      '1,500 credits a month',
       'Up to 8 agents per goal',
       '10 seats included',
       'Shared history and audit log',
@@ -176,20 +183,20 @@ export const getBillingPlan = (key: string | null | undefined): BillingPlan =>
  */
 export interface TopUpPack {
   readonly key: string
-  readonly goals: number
+  readonly credits: number
   readonly priceUsd: number
 }
 
 export const TOP_UP_PACKS: readonly TopUpPack[] = [
-  { key: 'pack_50', goals: 50, priceUsd: 12 },
-  { key: 'pack_200', goals: 200, priceUsd: 40 },
-  { key: 'pack_600', goals: 600, priceUsd: 99 },
+  { key: 'pack_50', credits: 50, priceUsd: 12 },
+  { key: 'pack_200', credits: 200, priceUsd: 40 },
+  { key: 'pack_600', credits: 600, priceUsd: 99 },
 ]
 
-/** What one goal costs in a pack, for the "save 31%" line on the page. */
+/** What one credit costs in a pack, for the "save 31%" line on the page. */
 export const packSavingPercent = (pack: TopUpPack): number => {
   const base = TOP_UP_PACKS[0]!
-  const basePer = base.priceUsd / base.goals
-  const thisPer = pack.priceUsd / pack.goals
+  const basePer = base.priceUsd / base.credits
+  const thisPer = pack.priceUsd / pack.credits
   return Math.round((1 - thisPer / basePer) * 100)
 }

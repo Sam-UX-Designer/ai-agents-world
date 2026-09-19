@@ -37,14 +37,14 @@ test('a new workspace gets the free plan, and its allowance', async () => {
 
   const free = getBillingPlan('free')
   assert.equal(balance.plan.key, 'free')
-  assert.equal(balance.freeLeft, free.goalsPerDay)
+  assert.equal(balance.freeLeft, free.creditsPerDay)
   assert.equal(balance.credits, 0, 'nothing is given away as paid credit')
-  assert.equal(balance.total, free.goalsPerDay)
+  assert.equal(balance.total, free.creditsPerDay)
 })
 
 test('the free allowance runs out, and says when it comes back', async () => {
   const { workspaceId, userId } = await seedWorkspace(db)
-  const perDay = getBillingPlan('free').goalsPerDay!
+  const perDay = getBillingPlan('free').creditsPerDay!
 
   for (let i = 0; i < perDay; i++) {
     const goalId = await seedGoal(db, workspaceId, userId, `goal ${i}`)
@@ -57,7 +57,7 @@ test('the free allowance runs out, and says when it comes back', async () => {
 
   assert.equal(denied.ok, false, 'the next one is refused')
   const reason = denied.ok ? '' : denied.reason
-  assert.match(reason, /free goals/i, 'and says what ran out')
+  assert.match(reason, /free credits/i, 'and says what ran out')
   assert.match(reason, /hour/i, 'and when it comes back')
   assert.ok(!/error|failed|null/i.test(reason), 'in words, not in database language')
 
@@ -73,10 +73,10 @@ test('a plan with no free allowance spends paid credits instead', async () => {
   assert.equal(first.ok && first.from, 'credits')
 
   const balance = await balanceOf(workspaceId)
-  assert.equal(balance.freeLeft, 0, 'a paid plan has no daily free goals')
+  assert.equal(balance.freeLeft, 0, 'a paid plan has no daily free credits')
   // The monthly grant lands on first read, so the balance is the allowance
   // plus what was seeded, less the one just spent.
-  assert.equal(balance.credits, getBillingPlan('pro').goalsPerMonth! + 1)
+  assert.equal(balance.credits, getBillingPlan('pro').creditsPerMonth! + 1)
 })
 
 test('two goals at the same instant cannot both take the last credit', async () => {

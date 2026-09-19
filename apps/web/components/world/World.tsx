@@ -418,7 +418,7 @@ export function CommandBar({
   const input = useRef<HTMLTextAreaElement>(null)
 
   // What is left, shown before they type rather than after they are refused.
-  // Someone who can see they are on their last goal spends it differently
+  // Someone who can see they are on their last credit spends it differently
   // from someone who finds out by being stopped.
   const loadBalance = useCallback(() => {
     api.billing().then(setBalance).catch(() => undefined)
@@ -520,12 +520,12 @@ export function CommandBar({
       )}
 
       {/* Only once it starts to matter. A counter reading "300 left" every day
-          is furniture; one reading "1 goal left today" is information. */}
+          is furniture; one reading "1 credit left" is information. */}
       {!error && balance && balance.total <= LOW_BALANCE && (
         <p className="command__left">
           {balance.total === 0
-            ? 'No goals left right now.'
-            : `${balance.total} goal${balance.total === 1 ? '' : 's'} left.`}{' '}
+            ? 'No credits left right now.'
+            : `${balance.total} credit${balance.total === 1 ? '' : 's'} left.`}{' '}
           <Link href="/pricing">See plans</Link>
         </p>
       )}

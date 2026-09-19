@@ -378,12 +378,12 @@ function ProfileMenu({
           <p className="pop__head">What you have left</p>
           <p className="wallet__count">
             <strong>{billing.total.toLocaleString()}</strong>
-            <span>goal{billing.total === 1 ? '' : 's'}</span>
+            <span>credit{billing.total === 1 ? '' : 's'}</span>
           </p>
           <p className="wallet__detail">
             {billing.freePerDay > 0
-              ? `${billing.freeLeft} of ${billing.freePerDay} free goals left today`
-              : `${billing.credits.toLocaleString()} credits on your ${billing.plan.name} plan`}
+              ? `${billing.freeLeft} of ${billing.freePerDay} free credits left today`
+              : `On your ${billing.plan.name} plan`}
           </p>
           <Link className="wallet__link" href="/pricing" onClick={onClose}>
             {billing.plan.key === 'free' ? 'See plans' : 'Add credits'}

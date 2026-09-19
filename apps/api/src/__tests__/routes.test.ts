@@ -644,7 +644,7 @@ test('a goal is refused once the allowance is gone, before any model call', asyn
   const { workspaceId, userId } = await seedWorkspace(db)
   const cookie = await cookieFor(userId, workspaceId)
   const { getBillingPlan } = await import('@agents-world/shared')
-  const perDay = getBillingPlan('free').goalsPerDay!
+  const perDay = getBillingPlan('free').creditsPerDay!
 
   /*
    * A plan that actually succeeds.
@@ -708,7 +708,7 @@ test('a goal is refused once the allowance is gone, before any model call', asyn
 
   assert.equal(refused.statusCode, 402, 'the next one is refused with "payment required"')
   const body = refused.json() as { error: string; upgrade?: boolean }
-  assert.match(body.error, /free goals/i, 'and says what ran out, in words')
+  assert.match(body.error, /free credits/i, 'and says what ran out, in words')
   assert.equal(body.upgrade, true, 'and tells the client there is a way forward')
   assert.equal(planCalls, callsBefore, 'no model call was made for the refused goal')
 
@@ -720,7 +720,7 @@ test('a goal is refused once the allowance is gone, before any model call', asyn
     .where(eqFor(schemaFor.goals.workspaceId, workspaceId))
   const failed = goals.filter((g) => g.state === 'failed')
   assert.equal(failed.length, 1)
-  assert.match(failed[0]?.error ?? '', /free goals/i)
+  assert.match(failed[0]?.error ?? '', /free credits/i)
 
   await metered.close()
 })
