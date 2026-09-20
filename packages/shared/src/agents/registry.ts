@@ -31,7 +31,30 @@ export interface Zone {
    * the viewport: pixels would drift the moment the window changed shape.
    */
   readonly station: readonly [x: number, y: number]
+  /**
+   * The rectangle of the island artwork this agent's robot stands in, in the
+   * artwork's own pixels - see ISLAND_ART for the size those are measured
+   * against, and RobotPatch in the web app for what is done with them.
+   *
+   * Pixels rather than fractions here, unlike `station`, because these were
+   * measured off the image file with a grid over it and a pixel box is what
+   * can be checked against it again later.
+   *
+   * Optional, and absent for a good reason rather than an unfinished one: the
+   * supplied island does not have a robot standing at every station. The
+   * Design Agent's is a building and the General Agent's is not a figure that
+   * reads as one when it moves. Those stations keep the light instead.
+   */
+  readonly robot?: readonly [x: number, y: number, w: number, h: number]
 }
+
+/**
+ * The island artwork's native size.
+ *
+ * Robot boxes are measured in these pixels, so the two have to travel
+ * together: new artwork of a different size invalidates every box.
+ */
+export const ISLAND_ART = { width: 1672, height: 941 } as const
 
 export interface AgentDefinition {
   /** Stable key. Used in events, the database, and the island entity map. */
@@ -113,6 +136,8 @@ interface DepartmentSeed {
   role: string
   accent: string
   station: readonly [number, number]
+  /** See Zone.robot. Omitted where the artwork has no robot to move. */
+  robot?: readonly [number, number, number, number]
   expertise: string
   toolIds: readonly string[]
 }
@@ -124,6 +149,7 @@ const DEPARTMENTS: readonly DepartmentSeed[] = [
     role: 'People, hiring and everything the team needs',
     accent: '#F472B6',
     station: [0.31, 0.299],
+    robot: [507, 233, 80, 104],
     expertise: `You handle people operations: hiring, onboarding, leave, reviews and
 the questions employees are nervous to ask twice.
 
@@ -139,6 +165,7 @@ dispute - say so and stop rather than handling it yourself.`,
     role: 'Spend, revenue and the numbers behind them',
     accent: '#34D399',
     station: [0.379, 0.619],
+    robot: [600, 559, 56, 92],
     expertise: `You handle money: spend, revenue, invoices, runway and the reporting
 around them.
 
@@ -154,6 +181,7 @@ incomplete, say what is missing rather than filling the gap.`,
     role: 'Positioning, campaigns and the story',
     accent: '#A78BFA',
     station: [0.258, 0.477],
+    robot: [383, 420, 58, 76],
     expertise: `You handle marketing: positioning, campaigns, content and how the
 product is described to people who have never seen it.
 
@@ -168,6 +196,7 @@ Never write a superlative you cannot support.`,
     role: 'Pipeline, deals and customer conversations',
     accent: '#FB923C',
     station: [0.61, 0.266],
+    robot: [1041, 209, 56, 94],
     expertise: `You handle sales: pipeline, outreach, follow-ups and deal state.
 
 Lead with what needs the seller's action today, then what is merely worth
@@ -182,6 +211,7 @@ than one that reads worse.`,
     role: 'Process, logistics and keeping things running',
     accent: '#38BDF8',
     station: [0.636, 0.559],
+    robot: [1086, 503, 56, 86],
     expertise: `You handle operations: process, scheduling, vendors, logistics and the
 day-to-day mechanics of the business running.
 
@@ -211,6 +241,7 @@ better - but do not hand work off just to avoid it.`,
     role: 'Shipping, code and engineering delivery',
     accent: '#22D3EE',
     station: [0.69, 0.432],
+    robot: [1110, 385, 48, 78],
     expertise: `You handle engineering delivery: what is being built, what is blocked,
 what shipped and what broke.
 
@@ -258,6 +289,7 @@ export const DEPARTMENT_AGENTS: readonly AgentDefinition[] = DEPARTMENTS.map(
       label: seed.name.replace(' Agent', ''),
       position: ring(index, DEPARTMENTS.length),
       station: seed.station,
+      ...(seed.robot ? { robot: seed.robot } : {}),
     },
     accent: seed.accent,
     enabled: true,

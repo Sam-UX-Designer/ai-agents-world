@@ -14,7 +14,14 @@ export interface AgentInfo {
   name: string
   role: string
   instructions: string
-  zone: { id: string; label: string; position: [number, number, number]; station: [number, number] }
+  zone: {
+    id: string
+    label: string
+    position: [number, number, number]
+    station: [number, number]
+    /** The robot's box in the artwork's own pixels. See Zone.robot. */
+    robot?: [number, number, number, number]
+  }
   accent: string
   enabled: boolean
   tools: { id: string; label: string; effect: string }[]

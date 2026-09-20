@@ -74,12 +74,28 @@ export function useCoverRect(imageAspect: number): CoverRect {
        */
       const scale = vw <= PHONE_WIDTH ? PHONE_HEADROOM : 1
 
-      const width = coverWidth * scale
-      const height = (coverWidth / imageAspect) * scale
+      /*
+       * Whole pixels.
+       *
+       * The island is drawn twice over: once as the <img>, and once inside
+       * each robot patch, which fills itself with the same image scaled to
+       * the same size so that it cannot be told from what is underneath it.
+       * That only holds if both land on the same pixel grid, and a fractional
+       * width puts them half a pixel apart - which showed up as a faint
+       * outline traced around every robot. Rounding here fixes it at the one
+       * place the size is decided.
+       */
+      const width = Math.round(coverWidth * scale)
+      const height = Math.round((coverWidth / imageAspect) * scale)
 
       // Centred, so the overflow hangs off both sides equally. A negative
       // offset is the same statement as "there is island off that edge".
-      setRect({ left: (vw - width) / 2, top: (vh - height) / 2, width, height })
+      setRect({
+        left: Math.round((vw - width) / 2),
+        top: Math.round((vh - height) / 2),
+        width,
+        height,
+      })
     }
 
     measure()

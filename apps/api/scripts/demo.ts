@@ -236,9 +236,22 @@ app.get('/demo/login', async (_request, reply) =>
  * Demo script only, like /demo/login. The server `pnpm dev` builds has no such
  * route, and neither does production.
  */
-app.post('/demo/credits', async (_request, reply) => {
+app.post('/demo/credits', async (request, reply) => {
   const { balanceOf, grantCredits } = await import('../src/billing/wallet.js')
   const before = await balanceOf(workspaceId)
+
+  /*
+   * Optionally move the workspace onto a bigger plan.
+   *
+   * The free plan allows one task per goal, so every goal the demo can plan
+   * for more than one lands on the refusal screen. That is correct behaviour
+   * and there is a spec for it - but it also means a spec that needs two
+   * agents actually working has no way to get there.
+   */
+  const plan = (request.query as { plan?: string } | undefined)?.plan
+  if (plan) {
+    await db.update(schema.wallets).set({ plan }).where(eq(schema.wallets.workspaceId, workspaceId))
+  }
 
   // Reset the daily allowance too - it is the free plan's whole balance, and
   // a top-up of paid credits would not restore it.
@@ -248,7 +261,7 @@ app.post('/demo/credits', async (_request, reply) => {
     .where(eq(schema.wallets.workspaceId, workspaceId))
 
   await grantCredits(workspaceId, 25, 'adjustment', 'e2e top-up')
-  return reply.send({ before: before.total, after: (await balanceOf(workspaceId)).total })
+  return reply.send({ before: before.total, after: (await balanceOf(workspaceId)).total, plan: plan ?? null })
 })
 
 await app.listen({ port: Number(process.env.PORT), host: '0.0.0.0' })

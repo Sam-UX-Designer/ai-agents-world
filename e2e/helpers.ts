@@ -55,10 +55,12 @@ export async function balance(page: Page) {
  *
  * The route is demo-only. Production has no way to mint credit from a request.
  */
-export async function topUp(page: Page) {
-  const res = await page.request.post('/api/demo/credits')
+export async function topUp(page: Page, plan?: string) {
+  const res = await page.request.post(
+    plan ? `/api/demo/credits?plan=${plan}` : '/api/demo/credits',
+  )
   expect(res.ok(), 'demo credit top-up').toBeTruthy()
-  return res.json() as Promise<{ before: number; after: number }>
+  return res.json() as Promise<{ before: number; after: number; plan: string | null }>
 }
 
 /** Spend the free allowance down to `leave` remaining, without the UI. */

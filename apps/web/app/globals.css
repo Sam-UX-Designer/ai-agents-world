@@ -145,6 +145,60 @@ html, body {
    is the island and nothing beyond it. */
 .world__pan { position: relative; }
 
+/*
+ * A robot cut out of the picture, in place.
+ *
+ * Positioned and filled by World so that at rest it is pixel-identical to the
+ * artwork underneath - which is why there is no border, no shadow and no
+ * background colour here. Anything that made this box visible while the agent
+ * was idle would put a rectangle on the island.
+ */
+.robot {
+  position: absolute;
+  pointer-events: none;
+  /* The feet. Every transform pivots here, so they stay where they were
+     painted however much the rest of the robot moves. */
+  transform-origin: 50% 100%;
+  /*
+   * Feathered, because a scaled box has a hard edge and the artwork does not.
+   * The fade has to sit in the margin around the robot rather than across it,
+   * which is why the boxes in the registry are drawn loose: roughly nine
+   * pixels of ground and sky on every side for this to fade through.
+   */
+  -webkit-mask-image: radial-gradient(ellipse 50% 48% at 50% 52%, #000 56%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 48% at 50% 52%, #000 56%, transparent 100%);
+  will-change: transform;
+}
+
+/*
+ * Working: up and down on the spot.
+ *
+ * Only ever scaling up, never down and never sideways. A box that shrinks or
+ * slides uncovers the untouched robot still painted underneath, and that reads
+ * as a double exposure - tested, and the reason this is a scale rather than
+ * the translate it started as.
+ *
+ * 1.055 on a box around 90px tall lifts the head about five pixels. Below
+ * about three it cannot be seen across a phone screen; above about eight the
+ * robot starts to look like it is being stretched rather than moving.
+ */
+.robot[data-state="working"],
+.robot[data-state="planning"],
+.robot[data-state="spawning"] {
+  animation: robot-work 1.55s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+@keyframes robot-work {
+  0%, 100% { transform: scaleY(1); }
+  /* Not a sine wave: quick up, slow settle, which is what a step reads like. */
+  38%      { transform: scaleY(1.055); }
+  62%      { transform: scaleY(1.012); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .robot { animation: none !important; }
+}
+
 .world[data-pannable="true"] { cursor: grab; }
 
 /*

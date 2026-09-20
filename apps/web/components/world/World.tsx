@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentInfo, BillingState } from '@/lib/api'
 import { ApiError, api } from '@/lib/api'
+import { ISLAND_ART } from '@agents-world/shared'
 import { pointOn, useCoverRect, type CoverRect } from '@/lib/coverRect'
 import { useWorld, type AgentView } from '@/lib/store'
 import { WorldArt } from './Backdrop'
@@ -71,6 +72,7 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
             style={rect.width ? { width: rect.width, height: rect.height } : undefined}
           >
             <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
+            <Robots agents={agents} rect={rect} />
             {/* Inside the scroller, so it travels with the island for free.
                 This box *is* the island, so the island's own origin is its
                 top-left corner rather than wherever the viewport crops it. */}
@@ -136,6 +138,86 @@ function useIslandPan(rect: CoverRect) {
   }, [])
 
   return { scroller, scroll, pannable, onScroll }
+}
+
+/**
+ * The robots, moving while their agent works.
+ *
+ * The island is one flat picture, so there is no robot object to animate.
+ * What there is, is the robot's own pixels - and a box drawn over them,
+ * filled with the same image offset to line up exactly, is invisible at rest
+ * and is a robot when it moves. Same idea as the Orb, which turns the sphere
+ * the artwork already has.
+ *
+ * The transform is the whole trick, and it took three attempts to find.
+ * Sliding the box up lifts the robot but uncovers the ground it was standing
+ * on - fine over the flat paving at Sales, a visible smear over grass.
+ * Rotating it around the feet keeps them planted but swings the box's edges
+ * across the original, so the untouched robot underneath peeks out at the
+ * shoulder. What works is scaling up from the feet: the box only ever grows,
+ * so nothing it covered can be uncovered, and the pivot means the feet stay
+ * exactly where they were painted. The robot rises about four pixels and
+ * settles, which reads as breathing rather than as a picture being stretched.
+ *
+ * Measured against the supplied render with a grid over it, at the boxes in
+ * the registry. Not every station has one - see Zone.robot.
+ */
+function Robots({
+  agents,
+  rect,
+}: {
+  agents: readonly AgentInfo[]
+  rect: CoverRect
+}) {
+  const agentStates = useWorld((s) => s.agents)
+
+  if (rect.width === 0) return null
+
+  // The island is drawn at rect.width, the boxes were measured at the file's
+  // own width, and the two differ on every screen.
+  const scale = rect.width / ISLAND_ART.width
+
+  return (
+    <>
+      {agents.map((agent) => {
+        const box = agent.zone.robot
+        if (!box) return null
+
+        const state = agentStates[agent.key]?.state ?? 'idle'
+        const [x, y, w, h] = box
+
+        /*
+         * Whole pixels, and the size taken as the difference between two
+         * rounded edges rather than a rounded width. Rounding the width on
+         * its own lets the right edge drift a pixel away from where the
+         * artwork's own is, and a patch that is a pixel wide of the image
+         * beneath it draws an outline around the robot at rest.
+         */
+        const left = Math.round(x * scale)
+        const top = Math.round(y * scale)
+
+        return (
+          <span
+            key={agent.key}
+            className="robot"
+            data-state={state}
+            aria-hidden="true"
+            style={{
+              left,
+              top,
+              width: Math.round((x + w) * scale) - left,
+              height: Math.round((y + h) * scale) - top,
+              backgroundImage: `url(${HERO_IMAGE.replace(/\.png$/, '.webp')})`,
+              backgroundSize: `${rect.width}px ${rect.height}px`,
+              // Pull the same pixels that are underneath into the box, so at
+              // rest it cannot be told from the artwork it sits on.
+              backgroundPosition: `${-left}px ${-top}px`,
+            }}
+          />
+        )
+      })}
+    </>
+  )
 }
 
 /** Where the Orchestrator stands. Every dispatch line starts here. */
