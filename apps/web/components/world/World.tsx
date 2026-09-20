@@ -58,7 +58,7 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
   return (
     <>
       <div
-        className="world"
+        className="world world--live"
         ref={scroller}
         onScroll={onScroll}
         data-pannable={pannable ? 'true' : undefined}

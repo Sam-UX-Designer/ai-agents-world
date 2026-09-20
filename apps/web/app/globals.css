@@ -85,7 +85,6 @@
 }
 
 html, body {
-  height: 100%;
   margin: 0;
   background: var(--color-ink-950);
   color: var(--color-text);
@@ -93,9 +92,35 @@ html, body {
     "Segoe UI", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* The world is a fixed environment; the page itself never scrolls. */
-  overflow: hidden;
+  /*
+   * Sideways, never. Down, when there is something below.
+   *
+   * This was `overflow: hidden` on both axes, for Home - where every piece of
+   * interface is fixed over the island and a scrolling page would drag the
+   * whole environment around. That is right for Home and wrong for every
+   * screen taller than the window: Pricing lays out 2609px of plans in an
+   * 839px phone and the other 1770px simply could not be reached. Screens
+   * that scroll inside themselves, like History, hid the problem.
+   *
+   * Home does not need the clamp to stand still - everything on it is fixed
+   * or absolute, so it has nothing to scroll to, and there is a test that
+   * holds that true.
+   */
+  overflow-x: hidden;
 }
+
+/*
+ * The page scrolls, the document does it.
+ *
+ * `height: 100%` on both of these used to pin the body to the window, which
+ * made the body itself the scroll container once the clamp came off - and a
+ * scrolling body is not the same thing as a scrolling page: window.scrollTo,
+ * anchor links and scroll-behavior all address document.scrollingElement,
+ * which stays put. Fixing the html to the window and letting the body grow
+ * past it keeps the scroller where every browser expects to find it.
+ */
+html { height: 100%; }
+body { min-height: 100%; }
 
 /* ------------------------------------------------------------------ glass -- */
 
@@ -125,17 +150,38 @@ html, body {
  * browser's job, and the hand-rolled version was cancelled by Chromium one
  * frame into every gesture.
  */
+/*
+ * The island, behind everything.
+ *
+ * Scenery by default: it does not scroll and it does not take a touch, so a
+ * swipe anywhere on a long page reaches the page. Only Home turns it into
+ * something you can move - see .world--live - and Home is the one screen
+ * whose own content is all fixed, so there is no page underneath to fight
+ * with.
+ *
+ * Getting this wrong is not subtle. With the scroller on every screen, a
+ * finger landing anywhere the interface did not cover was landing on a
+ * viewport-sized scroll container that contained its own overscroll, and
+ * Pricing could not be scrolled at all.
+ */
 .world {
   position: fixed;
   inset: 0;
   z-index: 0;
-  /* Both axes. The island is now larger than the screen in both directions on
-     a phone, and an axis that cannot be reached is artwork nobody sees. */
+  overflow: hidden;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+
+/* Home's island: the one you can move. Both axes, because the island is
+   larger than the screen in both directions on a phone and an axis that
+   cannot be reached is artwork nobody sees. */
+.world--live {
   overflow: auto;
+  pointer-events: auto;
   /* Contained, so a swipe that runs out of island does not start pulling the
      page behind it or trigger the browser's own pull-to-refresh. */
   overscroll-behavior: contain;
-  scrollbar-width: none;
 }
 .world::-webkit-scrollbar { display: none; }
 
