@@ -129,16 +129,21 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
+  /* Both axes. The island is now larger than the screen in both directions on
+     a phone, and an axis that cannot be reached is artwork nobody sees. */
+  overflow: auto;
+  /* Contained, so a swipe that runs out of island does not start pulling the
+     page behind it or trigger the browser's own pull-to-refresh. */
+  overscroll-behavior: contain;
   scrollbar-width: none;
 }
 .world::-webkit-scrollbar { display: none; }
 
 /* As wide as the cover-fitted artwork, which is what gives the container
    something to scroll. Sized from JS because only the aspect maths knows it. */
-.world__pan { position: relative; height: 100%; }
+/* Sized in World to the island's exact rendered pixels, so the scroll range
+   is the island and nothing beyond it. */
+.world__pan { position: relative; }
 
 .world[data-pannable="true"] { cursor: grab; }
 

@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { ONE_AGENT_GOAL, answerText, ask, canPan, panIsland, panOffset, signIn, topUp } from './helpers'
+import {
+  ONE_AGENT_GOAL, answerText, ask, canPan, canPanY, panIsland, panIslandY,
+  panOffset, panOffsetY, signIn, topUp,
+} from './helpers'
 
 /**
  * The phone, which is where this product is actually going to be opened.
@@ -39,6 +42,44 @@ test.describe('phone', () => {
     expect(await panOffset(page), 'does not pan past the island').toBe(right)
   })
 
+  test('the island can be panned up and down', async ({ page }) => {
+    await signIn(page)
+
+    // Cover-fitting alone leaves the island exactly as tall as the screen, so
+    // this axis had nothing to travel into and a vertical drag did nothing.
+    // The island is drawn a little larger than cover on a phone for exactly
+    // this reason - see PHONE_HEADROOM.
+    expect(await canPanY(page), 'there is island above and below the screen').toBe(true)
+
+    const middle = await panOffsetY(page)
+    expect(middle, 'starts in the middle vertically too').toBeGreaterThan(0)
+
+    await panIslandY(page, -100_000)
+    expect(await panOffsetY(page), 'reaches the top edge').toBeLessThan(2)
+
+    await panIslandY(page, 100_000)
+    const bottom = await panOffsetY(page)
+    expect(bottom, 'reaches the bottom edge').toBeGreaterThan(middle)
+
+    // And stops at the shoreline rather than scrolling on into nothing.
+    await panIslandY(page, 500)
+    expect(await panOffsetY(page), 'does not pan past the island').toBe(bottom)
+  })
+
+  test('the two axes are independent', async ({ page }) => {
+    await signIn(page)
+
+    // Panning down must not drag the island sideways, and the reverse. A
+    // scroller that coupled them would make the island impossible to aim.
+    const x = await panOffset(page)
+    await panIslandY(page, 60)
+    expect(await panOffset(page), 'panning down left the horizontal alone').toBe(x)
+
+    const y = await panOffsetY(page)
+    await panIsland(page, 120)
+    expect(await panOffsetY(page), 'panning across left the vertical alone').toBe(y)
+  })
+
   test('the stations travel with the island, not over it', async ({ page }) => {
     await signIn(page)
 
@@ -53,6 +94,16 @@ test.describe('phone', () => {
     expect(after.x - before.x, 'the station moved exactly as far as the island')
       .toBeGreaterThan(134)
     expect(after.x - before.x).toBeLessThan(146)
+
+    // Same again on the axis that only just started moving. A station that
+    // tracked one axis and not the other would slide off its building the
+    // moment the island was panned down.
+    const beforeY = (await station.boundingBox())!
+    await panIslandY(page, -70)
+    const afterY = (await station.boundingBox())!
+    expect(afterY.y - beforeY.y, 'the station moved down exactly as far as the island')
+      .toBeGreaterThan(64)
+    expect(afterY.y - beforeY.y).toBeLessThan(76)
   })
 
   test('panning reaches the stations that start off screen', async ({ page }) => {

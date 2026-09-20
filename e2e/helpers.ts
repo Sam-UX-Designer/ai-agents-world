@@ -96,12 +96,30 @@ export async function panIsland(page: Page, dx: number) {
   await page.waitForTimeout(120)
 }
 
+/** Pan up or down the same way. Positive is downward. */
+export async function panIslandY(page: Page, dy: number) {
+  await page.locator('.world').evaluate((el, d) => {
+    el.scrollTop += d
+  }, dy)
+  await page.waitForTimeout(120)
+}
+
 /** How far the island is panned from its left edge, in pixels. */
 export async function panOffset(page: Page): Promise<number> {
   return page.locator('.world').evaluate((el) => el.scrollLeft)
 }
 
+/** How far down the island has been panned. */
+export async function panOffsetY(page: Page): Promise<number> {
+  return page.locator('.world').evaluate((el) => el.scrollTop)
+}
+
 /** True when there is island off the side of the screen to pan to. */
 export async function canPan(page: Page): Promise<boolean> {
   return page.locator('.world').evaluate((el) => el.scrollWidth > el.clientWidth + 1)
+}
+
+/** True when there is island above or below the screen to pan to. */
+export async function canPanY(page: Page): Promise<boolean> {
+  return page.locator('.world').evaluate((el) => el.scrollHeight > el.clientHeight + 1)
 }

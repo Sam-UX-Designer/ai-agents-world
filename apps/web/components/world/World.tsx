@@ -37,7 +37,7 @@ const SUGGESTIONS = [
 export function World({ agents }: { agents: readonly AgentInfo[] }) {
   const [artworkMissing, setArtworkMissing] = useState(false)
   const rect = useCoverRect(ISLAND_ASPECT)
-  const { scroller, scrollLeft, pannable, onScroll } = useIslandPan(rect)
+  const { scroller, scroll, pannable, onScroll } = useIslandPan(rect)
 
   const goalId = useWorld((s) => s.goalId)
   const goalState = useWorld((s) => s.goalState)
@@ -47,12 +47,12 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
   /*
    * Everything anchored to the artwork reads a rect shifted by the scroll, so
    * the stations travel with the island rather than hovering over a picture
-   * that slid out from under them. One number does it: pointOn is
-   * `rect.left + fraction * rect.width` all the way down, and with the island
-   * scrolled by `scrollLeft` its left edge sits exactly `-scrollLeft` from the
-   * viewport's.
+   * that slid out from under them. Two numbers do it: pointOn is
+   * `rect.left + fraction * rect.width` on one axis and the same on the
+   * other, and an island scrolled by (left, top) has its top-left corner
+   * exactly that far back from the viewport's.
    */
-  const panned = { ...rect, left: -scrollLeft }
+  const panned = { ...rect, left: -scroll.left, top: -scroll.top }
 
   return (
     <>
@@ -66,10 +66,15 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
         {artworkMissing ? (
           <MissingArtwork />
         ) : (
-          <div className="world__pan" style={rect.width ? { width: rect.width } : undefined}>
+          <div
+            className="world__pan"
+            style={rect.width ? { width: rect.width, height: rect.height } : undefined}
+          >
             <WorldArt src={HERO_IMAGE} onError={() => setArtworkMissing(true)} />
-            {/* Inside the scroller, so it travels with the island for free. */}
-            <Orb rect={{ ...rect, left: 0 }} running={running} />
+            {/* Inside the scroller, so it travels with the island for free.
+                This box *is* the island, so the island's own origin is its
+                top-left corner rather than wherever the viewport crops it. */}
+            <Orb rect={{ ...rect, left: 0, top: 0 }} running={running} />
           </div>
         )}
       </div>
@@ -107,28 +112,30 @@ export function World({ agents }: { agents: readonly AgentInfo[] }) {
  */
 function useIslandPan(rect: CoverRect) {
   const scroller = useRef<HTMLDivElement>(null)
-  const [scrollLeft, setScrollLeft] = useState(0)
+  const [scroll, setScroll] = useState({ left: 0, top: 0 })
 
-  // The image hangs off the left by exactly half its overflow, so a negative
-  // `left` is the same statement as "there is island off screen".
-  const pannable = rect.left < -1
+  // The island hangs off each edge by half its overflow, so a negative offset
+  // is the same statement as "there is island off that side of the screen".
+  const pannable = rect.left < -1 || rect.top < -1
 
-  // Start in the middle, which is where cover-fit would have put it, so the
-  // island does not jump on the first paint.
+  // Start in the middle of both axes, which is where cover-fit alone would
+  // have put it, so the island does not jump on the first paint.
   useEffect(() => {
     const el = scroller.current
     if (!el || rect.width === 0) return
-    const centre = Math.max(0, (rect.width - el.clientWidth) / 2)
-    el.scrollLeft = centre
-    setScrollLeft(centre)
-  }, [rect.width])
+    const left = Math.max(0, (rect.width - el.clientWidth) / 2)
+    const top = Math.max(0, (rect.height - el.clientHeight) / 2)
+    el.scrollLeft = left
+    el.scrollTop = top
+    setScroll({ left, top })
+  }, [rect.width, rect.height])
 
   const onScroll = useCallback(() => {
     const el = scroller.current
-    if (el) setScrollLeft(el.scrollLeft)
+    if (el) setScroll({ left: el.scrollLeft, top: el.scrollTop })
   }, [])
 
-  return { scroller, scrollLeft, pannable, onScroll }
+  return { scroller, scroll, pannable, onScroll }
 }
 
 /** Where the Orchestrator stands. Every dispatch line starts here. */

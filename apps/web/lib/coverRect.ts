@@ -15,6 +15,10 @@ import { useEffect, useState } from 'react'
  * against the image rather than against the viewport. A station stays on its
  * station at every aspect ratio, which is the whole point of anchoring them to
  * the artwork.
+ *
+ * On a phone it then draws the island a little larger than cover - see
+ * PHONE_HEADROOM. The offsets returned are still the island's true position,
+ * so everything anchored to them stays anchored.
  */
 
 export interface CoverRect {
@@ -26,6 +30,28 @@ export interface CoverRect {
   readonly height: number
 }
 
+/**
+ * How much bigger than `cover` to draw the island on a small screen.
+ *
+ * Cover overflows on exactly one axis - whichever one the viewport is short
+ * of - and leaves the other flush. On a phone held upright the flush axis is
+ * the vertical one: the island is exactly as tall as the screen, so there is
+ * nothing above or below to move to and a vertical drag does nothing at all.
+ *
+ * Scaling the whole island up gives both directions somewhere to travel. It
+ * has to be the whole island rather than one axis, because stretching one
+ * side would change the artwork's proportions and take every station off its
+ * building.
+ *
+ * 1.22 is chosen from the smallest phone this has to work on: about 670px
+ * tall, where it buys roughly 145px of vertical travel. Less than that and a
+ * drag reads as the screen resisting rather than as scrolling.
+ */
+const PHONE_HEADROOM = 1.22
+
+/** The width the phone stylesheet switches at. Same number, same meaning. */
+const PHONE_WIDTH = 900
+
 export function useCoverRect(imageAspect: number): CoverRect {
   const [rect, setRect] = useState<CoverRect>({ left: 0, top: 0, width: 0, height: 0 })
 
@@ -33,18 +59,27 @@ export function useCoverRect(imageAspect: number): CoverRect {
     const measure = () => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const viewportAspect = vw / vh
 
-      if (viewportAspect > imageAspect) {
-        // Viewport is wider: the image is scaled to the full width and
-        // overflows vertically, so the crop is top and bottom.
-        const height = vw / imageAspect
-        setRect({ left: 0, top: (vh - height) / 2, width: vw, height })
-      } else {
-        // Viewport is taller: scaled to full height, cropped left and right.
-        const width = vh * imageAspect
-        setRect({ left: (vw - width) / 2, top: 0, width, height: vh })
-      }
+      // Cover: the smallest size that leaves no gap on either side. One of
+      // these two is the binding constraint and the other is the overflow.
+      const coverWidth = Math.max(vw, vh * imageAspect)
+
+      /*
+       * Desktop keeps cover exactly.
+       *
+       * The headroom is there to make a gesture possible, and on a pointer
+       * device the island is already read at a glance rather than explored by
+       * dragging. Applying it everywhere would zoom the hero on every laptop
+       * for the sake of a scroll nobody performs there.
+       */
+      const scale = vw <= PHONE_WIDTH ? PHONE_HEADROOM : 1
+
+      const width = coverWidth * scale
+      const height = (coverWidth / imageAspect) * scale
+
+      // Centred, so the overflow hangs off both sides equally. A negative
+      // offset is the same statement as "there is island off that edge".
+      setRect({ left: (vw - width) / 2, top: (vh - height) / 2, width, height })
     }
 
     measure()
