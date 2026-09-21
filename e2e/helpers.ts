@@ -53,6 +53,11 @@ export async function balance(page: Page) {
  * every spec after it would fail for want of credit rather than for want of
  * correctness - which is a suite whose result depends on file order.
  *
+ * It also puts the workspace back on the free plan unless a plan is named,
+ * for the same reason: one spec upgrades to Pro to watch two agents work, and
+ * the demo has a single workspace, so without a reset every spec that runs
+ * after it silently tests a different plan from the one it means to.
+ *
  * The route is demo-only. Production has no way to mint credit from a request.
  */
 export async function topUp(page: Page, plan?: string) {
@@ -79,8 +84,19 @@ export async function spendDownTo(page: Page, leave: number) {
 /** A goal the demo routes to exactly one agent, which the free plan allows. */
 export const ONE_AGENT_GOAL = 'Create a design system'
 
-/** A goal the demo splits across two agents - more than the free plan allows. */
-export const TWO_AGENT_GOAL = 'Organize my schedule'
+/**
+ * A goal the demo plans across two different departments - Sales, then
+ * Marketing. This is what a plan's agent cap is actually about.
+ */
+export const TWO_AGENT_GOAL = 'Plan a marketing campaign'
+
+/**
+ * Two tasks, both for Operations.
+ *
+ * One agent doing two things, which the free plan sells as allowed and for a
+ * while refused: the cap counted tasks while the pricing page counted agents.
+ */
+export const TWO_TASK_ONE_AGENT_GOAL = 'Organize my schedule'
 
 /**
  * Pan the island sideways by `dx` pixels.

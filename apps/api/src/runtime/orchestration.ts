@@ -77,7 +77,7 @@ export async function runGoal(
       timezone: input.timezone,
       model: plan.model,
       effort: plan.effort,
-      maxTasks: plan.maxAgents,
+      maxAgents: plan.maxAgents,
       ...(input.attachedFilenames ? { attachedFiles: input.attachedFilenames } : {}),
     })
 
@@ -230,6 +230,15 @@ async function executePlan(
 }
 
 type TaskOutcome = 'succeeded' | 'failed' | 'awaiting_approval'
+
+/** One task, as it ended, for the answer to be written from. */
+interface TaskOutcomeRecord {
+  readonly title: string
+  readonly agentKey: string
+  readonly state: 'succeeded' | 'failed' | 'cancelled'
+  readonly result: string
+  readonly error: string | null
+}
 
 /** Run one task with one agent, reporting state the whole way. */
 async function runTask(
@@ -577,24 +586,50 @@ async function loadDependencyResults(
   }))
 }
 
-async function loadTaskResults(
-  goalId: string,
-): Promise<readonly { title: string; agentKey: string; result: string }[]> {
+/**
+ * Everything that was attempted for this goal, however it ended.
+ *
+ * This used to return only the runs that completed, and that made the final
+ * answer dishonest in the one case that matters. A goal fails outright only
+ * when every task in a step fails; a goal where one of three tasks failed
+ * still finishes and still gets summarised - from the two that worked, with
+ * no mention anywhere that the third did not. The user reads a confident
+ * answer about two thirds of their request.
+ *
+ * So failures and declines come back too, and the synthesis prompt is told
+ * to say what is missing. A partial answer is fine. A partial answer wearing
+ * a complete one's clothes is not.
+ *
+ * Left join, because a task can reach a terminal state without a run ever
+ * being written - the planner naming an agent that does not exist fails the
+ * task before there is anything to join to.
+ */
+async function loadTaskResults(goalId: string): Promise<readonly TaskOutcomeRecord[]> {
   const rows = await db()
     .select({
       title: schema.tasks.title,
-      agentKey: schema.agentRuns.agentKey,
+      state: schema.tasks.state,
+      error: schema.tasks.error,
+      agentKey: schema.tasks.agentKey,
+      runAgentKey: schema.agentRuns.agentKey,
       result: schema.agentRuns.result,
     })
-    .from(schema.agentRuns)
-    .innerJoin(schema.tasks, eq(schema.tasks.id, schema.agentRuns.taskId))
-    .where(and(eq(schema.agentRuns.goalId, goalId), eq(schema.agentRuns.state, 'completed')))
+    .from(schema.tasks)
+    .leftJoin(
+      schema.agentRuns,
+      and(eq(schema.agentRuns.taskId, schema.tasks.id), eq(schema.agentRuns.goalId, goalId)),
+    )
+    .where(eq(schema.tasks.goalId, goalId))
 
-  return rows.map((r) => ({
-    title: r.title,
-    agentKey: r.agentKey,
-    result: typeof r.result?.text === 'string' ? r.result.text : '',
-  }))
+  return rows
+    .filter((r) => isTaskTerminal(r.state as TaskState))
+    .map((r) => ({
+      title: r.title,
+      agentKey: r.runAgentKey ?? r.agentKey ?? 'unknown',
+      state: r.state as 'succeeded' | 'failed' | 'cancelled',
+      result: typeof r.result?.text === 'string' ? r.result.text : '',
+      error: r.error ?? null,
+    }))
 }
 
 async function loadPausedRun(

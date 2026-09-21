@@ -521,3 +521,210 @@ test('a goal that dies before planning tells the user why, in words', async () =
     'in our words, not the provider\'s raw text',
   )
 })
+
+test('a goal that half worked says which half did not', async () => {
+  /*
+   * The dishonest case, and the reason this test exists.
+   *
+   * A goal fails outright only when every task in a step fails. One failure
+   * out of two leaves the goal finishing normally - and the answer used to be
+   * written from the successes alone, because the loader asked only for runs
+   * in state 'completed'. The user read a confident reply about half their
+   * request with no sign the other half never happened.
+   */
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const goalId = await seedGoal(db, workspaceId, userId, 'Check mail and the numbers')
+
+  const bus = new EventBus(new PostgresEventStore())
+
+  // What the synthesis step was actually shown.
+  let synthesisPrompt = ''
+  let agentTurns = 0
+
+  const client = {
+    messages: {
+      parse: async () => ({
+        parsed_output: {
+          interpretation: 'Two independent checks.',
+          tasks: [
+            { id: 't1', title: 'Check mail', description: 'Read unread mail', agentKey: 'hr', dependsOn: [] },
+            { id: 't2', title: 'Check the numbers', description: 'Last month spend', agentKey: 'finance', dependsOn: [] },
+          ],
+          unsupported: [],
+        },
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 100, output_tokens: 50 },
+      }),
+      create: async (params: { system?: { text?: string }[]; messages?: { content?: unknown }[] }) => {
+        const system = String(params.system?.[0]?.text ?? '')
+        if (system.includes('writing the final answer')) {
+          synthesisPrompt = String(params.messages?.[0]?.content ?? '')
+          return {
+            content: [{ type: 'text', text: 'Summary.' }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 100, output_tokens: 50 },
+          }
+        }
+        // The first agent to run falls over; the second answers normally.
+        agentTurns++
+        if (agentTurns === 1) throw new Error('the mailbox refused the connection')
+        return {
+          content: [{ type: 'text', text: 'Spend was flat.' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 50 },
+        }
+      },
+    },
+  } as unknown as Anthropic
+
+  await runGoal({ client, bus }, { goalId, workspaceId, prompt: 'x', timezone: 'Asia/Kolkata' })
+
+  const tasks = await db.select().from(schema.tasks).where(eq(schema.tasks.goalId, goalId))
+  const failed = tasks.filter((t) => t.state === 'failed')
+  const ok = tasks.filter((t) => t.state === 'succeeded')
+  assert.equal(failed.length, 1, 'one task failed')
+  assert.equal(ok.length, 1, 'and one succeeded')
+
+  const [goal] = await db.select().from(schema.goals).where(eq(schema.goals.id, goalId))
+  assert.equal(goal?.state, 'completed', 'the goal still finishes on a partial success')
+
+  // The thing that was wrong: the failure has to reach whoever writes the
+  // answer, or the answer cannot mention it.
+  assert.ok(
+    synthesisPrompt.includes('DID NOT FINISH'),
+    'the failed task is shown to the synthesis, marked as failed',
+  )
+  assert.ok(
+    synthesisPrompt.includes(failed[0]!.title),
+    'and named, so the answer can say what is missing',
+  )
+  assert.ok(
+    synthesisPrompt.includes('Spend was flat.'),
+    'alongside the result that did work',
+  )
+})
+
+test('a goal where nothing worked does not ask a model to dress it up', async () => {
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const goalId = await seedGoal(db, workspaceId, userId, 'Do two things')
+
+  const bus = new EventBus(new PostgresEventStore())
+  let synthesisCalls = 0
+
+  const client = {
+    messages: {
+      parse: async () => ({
+        parsed_output: {
+          interpretation: 'Two checks.',
+          tasks: [
+            { id: 't1', title: 'Check mail', description: 'a', agentKey: 'hr', dependsOn: [] },
+            { id: 't2', title: 'Check numbers', description: 'b', agentKey: 'finance', dependsOn: [] },
+          ],
+          unsupported: [],
+        },
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 100, output_tokens: 50 },
+      }),
+      create: async (params: { system?: { text?: string }[] }) => {
+        if (String(params.system?.[0]?.text ?? '').includes('writing the final answer')) {
+          synthesisCalls++
+          return {
+            content: [{ type: 'text', text: 'It all went beautifully.' }],
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }
+        }
+        throw new Error('nothing was reachable')
+      },
+    },
+  } as unknown as Anthropic
+
+  await runGoal({ client, bus }, { goalId, workspaceId, prompt: 'x', timezone: 'Asia/Kolkata' })
+
+  const [goal] = await db.select().from(schema.goals).where(eq(schema.goals.id, goalId))
+  assert.equal(goal?.state, 'failed', 'a goal where every task failed is a failed goal')
+  assert.equal(synthesisCalls, 0, 'and no summary is written over the top of it')
+  assert.ok(
+    !String(goal?.summary ?? '').includes('beautifully'),
+    'the model never got the chance to be cheerful about it',
+  )
+})
+
+test('the free plan allows one agent doing several things, as it advertises', async () => {
+  /*
+   * The Free plan's own feature list says "One agent per goal". The cap was
+   * counting tasks, so a goal that gave the same agent two steps - read the
+   * inbox, then check the calendar - was refused with "this goal needs more
+   * than the 1 agent your plan allows". One agent. The product was selling
+   * something it then declined to do, on one of the suggestion chips printed
+   * on its own Home screen.
+   */
+  const { getBillingPlan } = await import('@agents-world/shared')
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const goalId = await seedGoal(db, workspaceId, userId, 'Organize my schedule')
+
+  const bus = new EventBus(new PostgresEventStore())
+  const client = stubClient({
+    plan: {
+      interpretation: 'Two steps, both for Operations.',
+      tasks: [
+        { id: 't1', title: 'Review email', description: 'Unread mail', agentKey: 'operations', dependsOn: [] },
+        { id: 't2', title: 'Check the calendar', description: 'Tomorrow', agentKey: 'operations', dependsOn: [] },
+      ],
+      unsupported: [],
+    },
+    replies: ['Three need a reply.', 'One clash at 09:00.', 'Here is your day.'],
+  })
+
+  await runGoal(
+    { client, bus },
+    {
+      goalId,
+      workspaceId,
+      prompt: 'Organize my schedule',
+      timezone: 'Asia/Kolkata',
+      billing: getBillingPlan('free'),
+    },
+  )
+
+  const [goal] = await db.select().from(schema.goals).where(eq(schema.goals.id, goalId))
+  assert.equal(goal?.state, 'completed', 'one agent, two steps, on the plan that sells one agent')
+})
+
+test('a goal needing more agents than the plan allows says so in those terms', async () => {
+  const { getBillingPlan } = await import('@agents-world/shared')
+  const { workspaceId, userId } = await seedWorkspace(db)
+  const goalId = await seedGoal(db, workspaceId, userId, 'Everything at once')
+
+  const bus = new EventBus(new PostgresEventStore())
+  const client = stubClient({
+    plan: {
+      interpretation: 'Two different departments.',
+      tasks: [
+        { id: 't1', title: 'Check mail', description: 'a', agentKey: 'operations', dependsOn: [] },
+        { id: 't2', title: 'Check spend', description: 'b', agentKey: 'finance', dependsOn: [] },
+      ],
+      unsupported: [],
+    },
+    replies: [],
+  })
+
+  await runGoal(
+    { client, bus },
+    {
+      goalId,
+      workspaceId,
+      prompt: 'Everything at once',
+      timezone: 'Asia/Kolkata',
+      billing: getBillingPlan('free'),
+    },
+  )
+
+  const [goal] = await db.select().from(schema.goals).where(eq(schema.goals.id, goalId))
+  assert.equal(goal?.state, 'failed')
+  assert.match(
+    goal?.error ?? '',
+    /needs 2 agents and your plan allows 1/,
+    'the refusal counts the thing it names',
+  )
+})

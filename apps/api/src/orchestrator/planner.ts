@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import {
   ORCHESTRATOR,
+  PLAN_LIMIT_MARKER,
   type PlanEffort,
   type PlanModel,
   availableTools,
@@ -46,14 +47,21 @@ export interface PlanRequest {
   readonly model?: PlanModel
   readonly effort?: PlanEffort
   /**
-   * Most tasks this plan may split the goal into.
+   * How many different agents this plan may wake, from the workspace's plan.
    *
-   * Cost scales with how many agents wake up, so this is what keeps one
-   * credit worth roughly one credit. Told to the Orchestrator rather than
-   * enforced by truncation afterwards: cutting tasks off a finished plan
-   * breaks the dependencies between the ones that remain.
+   * Agents, not tasks, because that is what the pricing page sells: the free
+   * tier's own feature list says "One agent per goal". Counting tasks instead
+   * refused a goal that gave two steps to the same agent - one agent, told it
+   * needed more than one.
+   *
+   * Cost is bounded separately, by stepCeiling, because one agent can still be
+   * given any number of tasks and each is its own model run.
+   *
+   * Told to the Orchestrator rather than enforced by truncation afterwards:
+   * cutting tasks off a finished plan breaks the dependencies between the ones
+   * that remain.
    */
-  readonly maxTasks?: number
+  readonly maxAgents?: number
 }
 
 export type PlanResult =
@@ -94,10 +102,19 @@ function describeRoster(connected: readonly ConnectionProvider[]): string {
     .join('\n\n')
 }
 
+/**
+ * How many tasks a plan may hold, given how many agents it may wake.
+ *
+ * Three apiece, and never fewer than three, so a single-agent free goal can
+ * still be a read, a check and a write rather than one shot.
+ */
+const stepCeiling = (maxAgents: number): number => Math.max(3, maxAgents * 3)
+
 function buildUserPrompt(req: PlanRequest): string {
   const cap =
-    req.maxTasks && req.maxTasks > 0
-      ? `\n\nHard limit: use at most ${req.maxTasks} task${req.maxTasks === 1 ? '' : 's'}. ` +
+    req.maxAgents && req.maxAgents > 0
+      ? `\n\nHard limit: use at most ${req.maxAgents} different agent${req.maxAgents === 1 ? '' : 's'}, ` +
+        `and at most ${stepCeiling(req.maxAgents)} tasks in total. ` +
         'If the goal genuinely needs more, do the most valuable part within the ' +
         'limit and say in the interpretation what you left out.'
       : ''
@@ -187,12 +204,33 @@ export async function createPlan(
     }
   }
 
-  if (req.maxTasks && plan.tasks.length > req.maxTasks) {
-    return {
-      ok: false,
-      reason:
-        `This goal needs more than the ${req.maxTasks} agent${req.maxTasks === 1 ? '' : 's'} ` +
-        'your plan allows in one goal. Split it into smaller goals, or move up a plan.',
+  if (req.maxAgents && req.maxAgents > 0) {
+    const wanted = new Set(plan.tasks.map((t) => t.agentKey)).size
+    if (wanted > req.maxAgents) {
+      return {
+        ok: false,
+        reason:
+          `This goal needs ${wanted} agents and ${PLAN_LIMIT_MARKER} ` +
+          `${req.maxAgents} in one goal. Split it into smaller goals, or move up a plan.`,
+      }
+    }
+
+    /*
+     * A second ceiling, on steps rather than agents.
+     *
+     * One agent can be given any number of tasks, and every task is a
+     * separate model run - so the agent cap alone does not bound what a goal
+     * costs. This does. It is worded as steps because that is what it counts;
+     * calling it agents is the mistake this pair of checks replaced.
+     */
+    const ceiling = stepCeiling(req.maxAgents)
+    if (plan.tasks.length > ceiling) {
+      return {
+        ok: false,
+        reason:
+          `This goal breaks down into ${plan.tasks.length} steps and ${PLAN_LIMIT_MARKER} ` +
+          `${ceiling} in one goal. Split it into smaller goals, or move up a plan.`,
+      }
     }
   }
 

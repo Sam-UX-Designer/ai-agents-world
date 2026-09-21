@@ -241,17 +241,16 @@ app.post('/demo/credits', async (request, reply) => {
   const before = await balanceOf(workspaceId)
 
   /*
-   * Optionally move the workspace onto a bigger plan.
+   * Set the plan, defaulting back to free.
    *
-   * The free plan allows one task per goal, so every goal the demo can plan
-   * for more than one lands on the refusal screen. That is correct behaviour
-   * and there is a spec for it - but it also means a spec that needs two
-   * agents actually working has no way to get there.
+   * The free plan allows one agent per goal, so a spec that needs two agents
+   * actually working has no way to get there without asking for a bigger one.
+   * Resetting to free when no plan is named matters just as much: there is
+   * one demo workspace, so an upgrade left in place turns every later spec
+   * into a test of a plan it did not choose.
    */
-  const plan = (request.query as { plan?: string } | undefined)?.plan
-  if (plan) {
-    await db.update(schema.wallets).set({ plan }).where(eq(schema.wallets.workspaceId, workspaceId))
-  }
+  const plan = (request.query as { plan?: string } | undefined)?.plan ?? 'free'
+  await db.update(schema.wallets).set({ plan }).where(eq(schema.wallets.workspaceId, workspaceId))
 
   // Reset the daily allowance too - it is the free plan's whole balance, and
   // a top-up of paid credits would not restore it.
@@ -261,7 +260,7 @@ app.post('/demo/credits', async (request, reply) => {
     .where(eq(schema.wallets.workspaceId, workspaceId))
 
   await grantCredits(workspaceId, 25, 'adjustment', 'e2e top-up')
-  return reply.send({ before: before.total, after: (await balanceOf(workspaceId)).total, plan: plan ?? null })
+  return reply.send({ before: before.total, after: (await balanceOf(workspaceId)).total, plan })
 })
 
 await app.listen({ port: Number(process.env.PORT), host: '0.0.0.0' })

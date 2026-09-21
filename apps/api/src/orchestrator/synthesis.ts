@@ -26,8 +26,12 @@ Write one answer:
 - Keep the evidence: senders, subjects, times, channel names, links. A summary
   the user cannot verify is a summary they have to redo.
 - Lead with what needs them to act, then what needs them to know.
-- If an agent failed or returned nothing useful, say so plainly and say what
-  is therefore missing. Never present a partial answer as a complete one.
+- Some of what follows is marked DID NOT FINISH or NOT DONE. Say so plainly,
+  name what is therefore missing, and never write around it. A user who is
+  not told a third of their request failed will act as though it did not.
+- Never claim an action was taken. The agents read; anything that sends,
+  posts or schedules stops for the user's approval, so write about what was
+  found, not about what was done.
 - No preamble, no sign-off, no restating the question. Start with the answer.
 
 Write in plain prose with short paragraphs. This text is also read aloud, so
@@ -35,7 +39,18 @@ avoid tables and deeply nested lists.`
 
 export interface SynthesisInput {
   readonly goal: string
-  readonly results: readonly { title: string; agentKey: string; result: string }[]
+  /**
+   * Every task that was attempted, however it ended - not only the ones that
+   * worked. A goal finishes as long as one task in each step did, so leaving
+   * the failures out is how a two-thirds answer gets written as a whole one.
+   */
+  readonly results: readonly {
+    title: string
+    agentKey: string
+    result: string
+    state?: 'succeeded' | 'failed' | 'cancelled'
+    error?: string | null
+  }[]
   readonly timezone: string
   /** The workspace's billing plan decides both. See the planner. */
   readonly model?: PlanModel
@@ -50,9 +65,34 @@ export async function synthesise(
     return 'No agent produced a result for this goal. Nothing was completed.'
   }
 
+  /*
+   * A task that failed or was declined is stated as such, in the same list
+   * as the ones that worked. The instructions above tell the model to say
+   * what is therefore missing, and it can only do that if it is told.
+   */
   const findings = input.results
-    .map((r) => `### ${r.title} (${r.agentKey})\n${r.result || '(returned nothing)'}`)
+    .map((r) => {
+      const head = `### ${r.title} (${r.agentKey})`
+      if (r.state === 'failed') {
+        return `${head} - DID NOT FINISH\n${r.error ?? 'No reason was recorded.'}`
+      }
+      if (r.state === 'cancelled') {
+        return `${head} - NOT DONE, the user declined it\n${r.error ?? ''}`.trimEnd()
+      }
+      return `${head}\n${r.result || '(returned nothing)'}`
+    })
     .join('\n\n')
+
+  // Everything was attempted and nothing worked. Saying so is the answer -
+  // there is nothing for a model to summarise.
+  if (input.results.every((r) => r.state === 'failed' || r.state === 'cancelled')) {
+    const lines = input.results.map((r) =>
+      r.state === 'cancelled'
+        ? `${r.title}: you declined this, so it was not done.`
+        : `${r.title}: ${r.error ?? 'did not finish.'}`,
+    )
+    return `Nothing was completed for this goal.\n\n${lines.join('\n')}`
+  }
 
   const response = await client.messages.create({
     model: input.model ?? 'claude-opus-5',

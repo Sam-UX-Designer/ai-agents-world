@@ -3776,3 +3776,18 @@ body { min-height: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .orb[data-running="true"] { animation: none; }
 }
+
+/* The way out of a plan-limit refusal, inside the sentence that explains it. */
+.answer__plans {
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid rgb(122 200 255 / 0.45);
+  background: rgb(62 155 255 / 0.16);
+  color: var(--color-accent-soft);
+  font-weight: 600;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.answer__plans:hover { background: rgb(62 155 255 / 0.28); }

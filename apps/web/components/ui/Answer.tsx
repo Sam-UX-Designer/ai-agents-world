@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { PLAN_LIMIT_MARKER } from '@agents-world/shared'
 import { api } from '@/lib/api'
 import { useWorld } from '@/lib/store'
 
@@ -79,6 +81,14 @@ export function Answer() {
         {failed && (
           <p className="answer__error" role="alert">
             {goalError ?? 'Something went wrong and no agent could start.'}
+            {/* A refusal that says "move up a plan" and then leaves the user
+                to find the page is a dead end. The planner writes the phrase,
+                shared owns it, and this is where it earns a link. */}
+            {goalError?.includes(PLAN_LIMIT_MARKER) && (
+              <Link href="/pricing" className="answer__plans">
+                See plans
+              </Link>
+            )}
           </p>
         )}
 

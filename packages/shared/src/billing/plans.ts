@@ -200,3 +200,13 @@ export const packSavingPercent = (pack: TopUpPack): number => {
   const thisPer = pack.priceUsd / pack.credits
   return Math.round((1 - thisPer / basePer) * 100)
 }
+
+/**
+ * The phrase every plan-limit refusal contains.
+ *
+ * Exported so the message and the screen that offers a way out of it cannot
+ * drift apart: the planner writes it, the answer panel looks for it and adds
+ * the link to the plans. A refusal that tells someone to move up a plan and
+ * then makes them find the page themselves is a dead end.
+ */
+export const PLAN_LIMIT_MARKER = 'your plan allows'

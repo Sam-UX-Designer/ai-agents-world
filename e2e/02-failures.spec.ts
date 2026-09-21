@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { TWO_AGENT_GOAL, answerText, ask, balance, signIn, spendDownTo, topUp } from './helpers'
+import {
+  TWO_AGENT_GOAL, TWO_TASK_ONE_AGENT_GOAL,
+  answerText, ask, balance, signIn, spendDownTo, topUp,
+} from './helpers'
 
 /**
  * What the user is told when it does not work.
@@ -38,9 +41,20 @@ test.describe('failures are legible', () => {
     await ask(page, 'fail: this will not work')
     await answerText(page)
 
+    /*
+     * Wait for the refund rather than reading straight after the answer.
+     * The failure reaches the screen over the socket and the credit goes back
+     * in the database; they are not the same write, and reading the balance
+     * on the first of them is a race the test loses roughly whenever the
+     * machine is busy.
+     */
+    await expect
+      .poll(async () => (await balance(page)).ledger.some((l) => l.reason === 'refund'),
+        { timeout: 15_000 })
+      .toBe(true)
+
     const after = await balance(page)
     expect(after.total, 'nothing ran, so nothing is charged').toBe(before.total)
-    expect(after.ledger.some((l) => l.reason === 'refund')).toBeTruthy()
   })
 
   test('the progress card shows the reason, not a frozen 0%', async ({ page }) => {
@@ -74,14 +88,33 @@ test.describe('failures are legible', () => {
     await expect(page.locator('.command__upgrade')).toBeVisible()
   })
 
-  test('a plan too big for the plan says so in words', async ({ page }) => {
+  test('a goal needing more agents than the plan allows says so, and offers the way out', async ({ page }) => {
     await signIn(page)
     const { plan } = await balance(page)
     test.skip(plan.maxAgents > 1, 'only the one-agent plan can hit this cap')
 
     await ask(page, TWO_AGENT_GOAL)
     const answer = await answerText(page)
-    expect(answer).toMatch(/agent/i)
-    expect(answer).toMatch(/plan allows|move up a plan|smaller goals/i)
+
+    // It counts the thing it names. The old message said "more than the 1
+    // agent your plan allows" while counting tasks, so a goal that gave one
+    // agent two steps was refused for needing too many agents.
+    expect(answer).toMatch(/2 agents/i)
+    expect(answer).toMatch(/plan allows/i)
+
+    // And the refusal is not a dead end.
+    await expect(page.locator('.answer__plans')).toBeVisible()
+  })
+
+  test('one agent doing two things is not refused for needing too many agents', async ({ page }) => {
+    await signIn(page)
+    const { plan } = await balance(page)
+    test.skip(plan.maxAgents > 1, 'the one-agent plan is the one that was wrong')
+
+    // The free plan's own feature list says "One agent per goal". This is one
+    // agent, given two steps.
+    await ask(page, TWO_TASK_ONE_AGENT_GOAL)
+    const answer = await answerText(page)
+    expect(answer).not.toMatch(/plan allows/i)
   })
 })
