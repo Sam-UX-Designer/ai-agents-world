@@ -9,6 +9,9 @@
 
    Tokens flip on <html data-pt>. Until the toggle has mounted the system
    preference decides, so a light reader never gets a dark flash.
+
+   The hero is the exception and always reads dark, because the island itself
+   is a night scene. White type over it in both modes is not an oversight.
    =========================================================================== */
 
 :root {
@@ -18,9 +21,19 @@
   --pt-dim: #A9BFDA;
   --pt-line: rgb(255 255 255 / 0.10);
   --pt-accent: #3E9BFF;
+  --pt-accent-soft: #7FC0FF;
   --pt-accent-ink: #061020;
   --pt-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
   --pt-shot-edge: rgb(255 255 255 / 0.10);
+
+  /* The canvas below the hero. Two glows and a dot field - the whole of the
+     "some gradient and some elements" brief, and no more than that. */
+  --pt-glow-1: rgb(62 155 255 / 0.17);
+  --pt-glow-2: rgb(62 155 255 / 0.09);
+  --pt-dot: rgb(255 255 255 / 0.075);
+  --pt-card: linear-gradient(168deg, rgb(18 34 56 / 0.5), rgb(7 14 26 / 0.62));
+  --pt-quiet: rgb(255 255 255 / 0.06);
+  --pt-quiet-hover: rgb(255 255 255 / 0.12);
 }
 
 @media (prefers-color-scheme: light) {
@@ -33,9 +46,16 @@
     /* Darker than the app's blue. White text on the app's #3E9BFF is 2.6:1,
        which fails at any size; this clears AA. */
     --pt-accent: #1668CE;
+    --pt-accent-soft: #14508F;
     --pt-accent-ink: #FFFFFF;
     --pt-shadow: 0 24px 60px rgb(10 21 36 / 0.14);
     --pt-shot-edge: rgb(10 21 36 / 0.14);
+    --pt-glow-1: rgb(22 104 206 / 0.11);
+    --pt-glow-2: rgb(22 104 206 / 0.06);
+    --pt-dot: rgb(10 21 36 / 0.07);
+    --pt-card: linear-gradient(168deg, rgb(255 255 255 / 0.92), rgb(240 246 253 / 0.86));
+    --pt-quiet: rgb(10 21 36 / 0.05);
+    --pt-quiet-hover: rgb(10 21 36 / 0.09);
   }
 }
 
@@ -46,9 +66,16 @@
   --pt-dim: #4E6076;
   --pt-line: rgb(10 21 36 / 0.12);
   --pt-accent: #1668CE;
+  --pt-accent-soft: #14508F;
   --pt-accent-ink: #FFFFFF;
   --pt-shadow: 0 24px 60px rgb(10 21 36 / 0.14);
   --pt-shot-edge: rgb(10 21 36 / 0.14);
+  --pt-glow-1: rgb(22 104 206 / 0.11);
+  --pt-glow-2: rgb(22 104 206 / 0.06);
+  --pt-dot: rgb(10 21 36 / 0.07);
+  --pt-card: linear-gradient(168deg, rgb(255 255 255 / 0.92), rgb(240 246 253 / 0.86));
+  --pt-quiet: rgb(10 21 36 / 0.05);
+  --pt-quiet-hover: rgb(10 21 36 / 0.09);
   color-scheme: light;
 }
 
@@ -56,9 +83,9 @@
 
 /* The app paints the body dark for every screen. This page owns its own. */
 .pt {
-  --pt-gutter: clamp(20px, 6vw, 88px);
-  --pt-max: 1240px;
-  --pt-r: 16px;
+  --pt-gutter: clamp(20px, 6vw, 96px);
+  --pt-max: 1180px;
+  --pt-r: 18px;
   position: relative;
   z-index: 1;
   min-height: 100dvh;
@@ -66,27 +93,57 @@
   color: var(--pt-text);
 }
 
-.pt > section { padding: clamp(72px, 12vh, 150px) var(--pt-gutter); }
-.pt h1, .pt h2 { margin: 0; letter-spacing: -0.025em; text-wrap: balance; }
+/* Sections breathe. This is the single biggest difference between a page that
+   reads as considered and one that reads as filled in. */
+.pt__canvas > section {
+  position: relative;
+  z-index: 1;
+  padding: clamp(88px, 15vh, 180px) var(--pt-gutter);
+}
+
+.pt h1,
+.pt h2,
+.pt h3 { margin: 0; letter-spacing: -0.025em; text-wrap: balance; }
 .pt p { margin: 0; color: var(--pt-dim); line-height: 1.62; text-wrap: pretty; }
 
-/* --- bar -------------------------------------------------------------------- */
-.pt__bar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+/* --- the bar across the top ------------------------------------------------
+   One line, 64px, and it stays out of the way. It scrolls off rather than
+   sticking: on a page whose hero is a photograph, a persistent bar is a
+   window frame over the view. */
+.pt__nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  height: 64px;
-  padding: 0 var(--pt-gutter);
-  background: color-mix(in srgb, var(--pt-bg) 88%, transparent);
-  border-bottom: 1px solid var(--pt-line);
-  backdrop-filter: blur(14px);
+  min-height: 64px;
+  padding: 10px var(--pt-gutter);
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
 }
-.pt__brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
-.pt__baractions { display: flex; align-items: center; gap: 10px; }
+
+.pt__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  /* The bar sits over the island in both modes, so it is lit for the island
+     rather than for the page underneath it. */
+  color: #FFFFFF;
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.pt__navlinks { display: flex; align-items: center; gap: clamp(8px, 1.6vw, 18px); }
+.pt__navlinks > a:first-of-type {
+  color: rgb(236 244 255 / 0.82);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.pt__navlinks > a:first-of-type:hover { color: #FFFFFF; }
 
 .pt__toggle {
   display: inline-flex;
@@ -95,15 +152,16 @@
   min-width: 84px;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid var(--pt-line);
-  background: transparent;
-  color: var(--pt-text);
+  border: 1px solid rgb(255 255 255 / 0.26);
+  background: rgb(4 7 13 / 0.32);
+  color: #FFFFFF;
   font: inherit;
   font-size: 13.5px;
   font-weight: 560;
   cursor: pointer;
+  backdrop-filter: blur(10px);
 }
-.pt__toggle:hover { background: color-mix(in srgb, var(--pt-text) 7%, transparent); }
+.pt__toggle:hover { background: rgb(4 7 13 / 0.5); }
 .pt__toggleicon {
   width: 13px; height: 13px; border-radius: 50%;
   border: 1.6px solid currentColor;
@@ -111,246 +169,414 @@
   background: linear-gradient(90deg, currentColor 50%, transparent 50%);
 }
 
-/* --- buttons ----------------------------------------------------------------- */
+/* --- buttons ---------------------------------------------------------------
+   Solid blue with near-white text clears AA comfortably; the quiet one gets a
+   stroke so it never floats unreadably over the artwork. */
 .pt__btn {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
-  padding: 12px 24px;
+  padding: 13px 26px;
   border-radius: 999px;
   border: 1px solid transparent;
-  background: var(--pt-accent);
-  color: var(--pt-accent-ink);
-  font-size: 15px; font-weight: 620; text-decoration: none;
-  transition: transform 140ms ease, filter 180ms ease;
+  background: linear-gradient(140deg, #3E9BFF, #2472D8);
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 620;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgb(62 155 255 / 0.28);
+  transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
 }
-.pt__btn:hover { filter: brightness(1.08); }
+.pt__btn:hover { filter: brightness(1.07); box-shadow: 0 14px 38px rgb(62 155 255 / 0.36); }
 .pt__btn:active { transform: translateY(1px); }
-.pt__btn--sm { padding: 8px 16px; font-size: 13.5px; }
-.pt__btn--quiet {
-  background: transparent;
-  border-color: var(--pt-line);
-  color: var(--pt-text);
-}
-.pt__btn--quiet:hover { background: color-mix(in srgb, var(--pt-text) 7%, transparent); filter: none; }
 
-/* --- hero ----------------------------------------------------------------------
-   Five seconds to say what is wrong, who it is for and what to press. The
-   text is left, the running app is beside it, and there is one button. */
-/*
- * Two classes, deliberately.
- *
- * `.pt > section` is one class plus a type, which outranks a single class -
- * so the padding-top written here was being ignored and the hero began a
- * section's worth of space below the bar.
- */
-.pt .pt__hero {
-  max-width: var(--pt-max);
-  margin-inline: auto;
-  padding-top: clamp(26px, 5vh, 62px);
+.pt__btn--small { padding: 9px 18px; font-size: 14px; box-shadow: none; }
+
+.pt__btn--quiet {
+  background: rgb(255 255 255 / 0.08);
+  border-color: rgb(255 255 255 / 0.24);
+  color: #FFFFFF;
+  box-shadow: none;
+  backdrop-filter: blur(10px);
 }
-.pt__herobody {
+.pt__btn--quiet:hover { background: rgb(255 255 255 / 0.16); filter: none; }
+
+.pt__link {
+  display: inline-block;
+  margin-top: 22px;
+  color: var(--pt-accent-soft);
+  font-size: 15px;
+  font-weight: 560;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+  opacity: 0.92;
+}
+.pt__link:hover { opacity: 1; }
+
+/* --- hero ------------------------------------------------------------------
+   dvh, not vh: on iOS the address bar changes vh mid-scroll and the hero
+   jumps. Capped so the first idea below it is visible on a laptop.
+
+   Centred, per the brief. The nav is absolute and 64px tall, so the text box
+   gets that much extra padding on top to sit optically in the middle rather
+   than measurably in it. */
+.pt__hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  min-height: min(100dvh, 880px);
+  padding: calc(64px + clamp(24px, 6vh, 56px)) var(--pt-gutter) clamp(40px, 9vh, 90px);
+  overflow: hidden;
+}
+
+.pt__heroart { position: absolute; inset: 0; z-index: 0; }
+.pt__heroimg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; display: block; }
+
+/* The scrim is bottom-weighted rather than flat, so the middle of the island
+   keeps its brightness and the headline still clears AAA over it. A centred
+   headline sits where the island is brightest, so the middle stop is a little
+   heavier than it was when the text was in the corner. */
+.pt__heroart::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, var(--pt-bg) 1%, rgb(4 7 13 / 0.74) 26%, rgb(4 7 13 / 0.34) 58%, rgb(4 7 13 / 0.5) 100%),
+    radial-gradient(70% 46% at 50% 46%, rgb(4 7 13 / 0.46), transparent 70%);
+}
+
+.pt__herotext {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  /* Wide enough for the headline at its cap. The paragraph under it has its
+     own, much shorter measure, so this does not set the reading width. */
+  max-width: 1200px;
+  display: grid;
+  justify-items: center;
+}
+
+.pt__herotext h1 {
+  /*
+   * The break is written into the markup, so the browser must not add its
+   * own balancing on top of it.
+   *
+   * Sized so the second line stays on one line rather than dropping the word
+   * "working" on its own, which is what the first cut did. Measured, not
+   * guessed: "Watch the AI agents working" needs 15.83px of width per pixel
+   * of font size, and the box is the viewport less 6vw of gutter on each
+   * side. 5.5vw keeps it inside that at every width down to the phone rule
+   * below, and 74px caps how large it grows on a wide screen.
+   */
+  text-wrap: initial;
+  font-size: min(74px, 5.5vw);
+  line-height: 1.05;
+  font-weight: 680;
+  color: #FFFFFF;
+  text-shadow: 0 2px 30px rgb(4 7 13 / 0.6);
+}
+
+.pt__herotext p {
+  max-width: 46ch;
+  margin-top: 22px;
+  font-size: clamp(16px, 1.9vw, 20px);
+  line-height: 1.5;
+  color: rgb(236 244 255 / 0.9);
+  text-shadow: 0 1px 16px rgb(4 7 13 / 0.7);
+}
+
+.pt__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 34px; }
+
+/* Off above 760px, where the whole sentence fits on one line. A `br` set to
+   `display: none` does not break, which is the whole trick. */
+.pt__herotext h1 .pt__brk { display: none; }
+
+/* The join from photograph to page. One lit hairline, fading out at both
+   ends, so the hero ends rather than simply stopping. */
+.pt__seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  z-index: 2;
+  background: linear-gradient(90deg, transparent, rgb(127 192 255 / 0.55) 24%, rgb(127 192 255 / 0.55) 76%, transparent);
+  box-shadow: 0 0 22px 1px rgb(62 155 255 / 0.3);
+}
+
+/* --- the canvas everything below the hero sits on ---------------------------
+   It used to be flat #070E1A for the whole page. Now: one wide glow under the
+   hero, a smaller one further down on the other side, and a dot field that
+   fades out before it reaches the footer. Three things, painted once on the
+   whole column so the light is continuous rather than restarting at every
+   section edge. */
+.pt__canvas {
+  position: relative;
+  isolation: isolate;
+  background:
+    /* The hero's scrim ends on the flat page colour, and the glow underneath
+       was at full strength on the very first pixel of the canvas - a step
+       across the join rather than a gradient. This holds the canvas at the
+       hero's own colour for the first 180px and lets the glow come up out of
+       it, so the two surfaces meet at the same value. */
+    linear-gradient(to bottom, var(--pt-bg) 0, transparent 180px),
+    radial-gradient(130% 62% at 50% 0%, var(--pt-glow-1), transparent 58%),
+    radial-gradient(75% 38% at 88% 46%, var(--pt-glow-2), transparent 62%),
+    var(--pt-bg);
+}
+
+.pt__canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--pt-dot) 1px, transparent 1px);
+  background-size: 34px 34px;
+  /* It belongs to the top of the page, where the hero's light still reaches.
+     Carrying it all the way down turns a texture into wallpaper. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 46%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 46%);
+}
+
+/* --- a statement on its own ------------------------------------------------ */
+.pt__say { text-align: center; }
+.pt__say > div { max-width: 760px; margin: 0 auto; }
+.pt__say h2 {
+  font-size: clamp(30px, 4.6vw, 54px);
+  line-height: 1.1;
+  font-weight: 660;
+}
+.pt__say p {
+  max-width: 58ch;
+  margin: 26px auto 0;
+  font-size: clamp(16px, 1.7vw, 19px);
+}
+
+/* --- text beside a picture ------------------------------------------------- */
+.pt__split {
   display: grid;
   grid-template-columns: 1fr;
-  gap: clamp(28px, 5vw, 56px);
+  gap: clamp(36px, 5vw, 72px);
   align-items: center;
-  margin-top: clamp(26px, 4vw, 44px);
+  max-width: var(--pt-max);
+  margin-inline: auto;
 }
-@media (min-width: 980px) { .pt__herobody { grid-template-columns: 0.9fr 1.1fr; } }
-
-.pt__hero h1 {
-  /*
-   * Sized to the column it sits in, not to the page.
-   *
-   * At 56px in a 540px column this broke into six lines - the headline was
-   * scaled for a full-width hero and then put in half of one.
-   */
-  font-size: clamp(28px, 4.4vw, 60px);
-  line-height: 1.1;
-  font-weight: 680;
-  /* The break is in the markup, at the full stop. `balance` would move it. */
-  text-wrap: initial;
-}
-.pt__lede { margin-top: 22px; max-width: 46ch; font-size: clamp(16.5px, 1.7vw, 19px); }
-/* Who it is for. A page that never says this fails the five second test
-   however good the headline is. */
-.pt__for {
-  margin-top: 14px;
-  font-size: 15px;
-  color: var(--pt-dim);
-  opacity: 0.85;
+@media (min-width: 900px) {
+  .pt__split { grid-template-columns: 1fr 1.05fr; }
 }
 
-.pt__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 30px; }
-.pt__btn--big { padding: 15px 30px; font-size: 16px; }
-/* The reassurance sits with the button, not three sections below it. */
-.pt__reassure { color: var(--pt-dim); font-size: 14.5px; }
+.pt__splittext h2 {
+  font-size: clamp(27px, 3.6vw, 42px);
+  line-height: 1.14;
+  font-weight: 640;
+  max-width: 18ch;
+}
+.pt__splittext p {
+  margin-top: 20px;
+  max-width: 46ch;
+  font-size: 17px;
+}
 
-.pt__heroshot img,
-.pt__howshot img,
-.pt__moment img,
-.pt__trustshots img {
-  display: block;
-  width: 100%;
-  height: auto;
+.pt__frame {
+  position: relative;
+  overflow: hidden;
   border-radius: var(--pt-r);
   border: 1px solid var(--pt-shot-edge);
   box-shadow: var(--pt-shadow);
+  aspect-ratio: 4 / 3;
+}
+/* Each crop looks at a different part of the same render, so the page shows
+   several places rather than the same photograph three times. Sized and
+   positioned from the component - see Crop. */
+.pt__crop {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
 }
 
-/* --- the shift ------------------------------------------------------------------
-   One statement, wide measure, nothing else on the screen. */
-.pt__shift { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
-.pt__shift > div { max-width: 760px; margin-inline: auto; }
-.pt__shift h2 {
-  font-size: clamp(26px, 3.6vw, 42px);
-  line-height: 1.14;
-  font-weight: 650;
-}
-.pt__shift p { margin-top: 22px; font-size: 17.5px; }
-
-/* --- what changes ---------------------------------------------------------------
-   Three outcomes in a row of plain columns, divided by a hairline rather than
-   boxed into cards. Cards here would be three identical tiles, which is the
-   most generic shape a page like this can take. */
-.pt__gains { max-width: var(--pt-max); margin-inline: auto; }
-.pt__gainshead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
-.pt__gainslist {
-  list-style: none;
-  margin: clamp(26px, 4vw, 40px) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-}
-.pt__gainslist > div { border-top: 1px solid var(--pt-line); }
-.pt__gainslist li { padding: 26px 0; }
-@media (min-width: 880px) {
-  .pt__gainslist { grid-template-columns: repeat(3, 1fr); column-gap: clamp(28px, 4vw, 56px); }
-  .pt__gainslist li { padding: 24px 0 0; }
-}
-.pt__gainslist h3 { margin: 0; font-size: 18px; font-weight: 640; letter-spacing: -0.015em; }
-.pt__gainslist p { margin-top: 10px; font-size: 15.5px; }
-
-/* --- how it works ---------------------------------------------------------------- */
-.pt__how { max-width: var(--pt-max); margin-inline: auto; }
-.pt__howhead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
-.pt__how h3 { margin: 0; font-size: clamp(20px, 2.3vw, 26px); font-weight: 640; line-height: 1.22; }
-.pt__how p { margin-top: 14px; font-size: 16.5px; max-width: 48ch; }
-
-.pt__howrow {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(22px, 3vw, 44px);
-  align-items: center;
-  margin-top: clamp(28px, 4vw, 46px);
-}
-@media (min-width: 880px) { .pt__howrow { grid-template-columns: 0.8fr 1.2fr; } }
-
-/* The one moment the page raises its voice. */
-.pt__moment { margin-top: clamp(52px, 8vw, 96px); }
-.pt__momenttext { max-width: 52ch; margin-bottom: clamp(24px, 3vw, 38px); }
-.pt__momenttext h3 { font-size: clamp(22px, 2.8vw, 32px); }
-
-.pt__howtail { margin-top: clamp(52px, 8vw, 96px); max-width: 52ch; }
-
-/* --- trust ----------------------------------------------------------------------
-   Where customer logos would go on a page that had customers. */
-.pt__trust { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
-.pt__trust > div { max-width: var(--pt-max); margin-inline: auto; }
-.pt__trust h2 {
-  font-size: clamp(26px, 3.4vw, 40px);
-  line-height: 1.14; font-weight: 650; max-width: 18ch;
-}
-.pt__trustgrid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 26px; }
-@media (min-width: 860px) { .pt__trustgrid { grid-template-columns: 1fr 1fr; column-gap: clamp(32px, 5vw, 70px); } }
-.pt__trustgrid p { font-size: 16.5px; max-width: 46ch; }
-.pt__trustshots {
+/* --- the asymmetric grid --------------------------------------------------- */
+.pt__bento {
+  max-width: var(--pt-max);
+  margin-inline: auto;
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  margin-top: clamp(30px, 4vw, 48px);
 }
-@media (min-width: 860px) { .pt__trustshots { grid-template-columns: 1fr 1fr; } }
-
-/* --- cost ------------------------------------------------------------------------ */
-.pt__cost { max-width: var(--pt-max); margin-inline: auto; }
-.pt__cost h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
-.pt__cost p { margin-top: 18px; max-width: 52ch; font-size: 17px; }
-.pt__link {
-  display: inline-block;
-  margin-top: 20px;
-  color: var(--pt-accent);
-  font-size: 15.5px; font-weight: 580; text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--pt-accent) 45%, transparent);
-  padding-bottom: 2px;
+@media (min-width: 900px) {
+  .pt__bento { grid-template-columns: 1fr 1fr; }
+  .pt__cell--wide { grid-column: 1 / -1; }
 }
-.pt__link:hover { border-bottom-color: var(--pt-accent); }
 
-/* --- questions -------------------------------------------------------------------
-   Open and close rather than five paragraphs: someone with one objection
-   should not have to read the other four. */
-.pt__qs { max-width: 820px; margin-inline: auto; }
-.pt__qshead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
-.pt__qslist { margin-top: clamp(20px, 3vw, 32px); }
-.pt__qslist > div { border-top: 1px solid var(--pt-line); }
-.pt__qslist > div:last-child { border-bottom: 1px solid var(--pt-line); }
-.pt__qs details { padding: 4px 0; }
-.pt__qs summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 20px 34px 20px 0;
-  position: relative;
-  font-size: 17px; font-weight: 580;
+.pt__bentohead { grid-column: 1 / -1; margin-bottom: clamp(10px, 2vw, 26px); }
+.pt__bentohead h2 {
+  font-size: clamp(27px, 3.6vw, 44px);
+  line-height: 1.12;
+  font-weight: 650;
+  max-width: 16ch;
+}
+
+.pt__cell {
+  border-radius: var(--pt-r);
+  border: 1px solid var(--pt-line);
+  padding: clamp(24px, 3vw, 34px);
+  background: var(--pt-card);
+}
+.pt__cell h3 { font-size: 19px; font-weight: 620; }
+.pt__cell p { margin-top: 10px; font-size: 15.5px; line-height: 1.6; max-width: 44ch; }
+
+/* The wide cell carries a real picture, so the grid is not five text boxes. */
+.pt__cell--wide {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(20px, 3vw, 38px);
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+}
+@media (min-width: 760px) {
+  .pt__cell--wide { grid-template-columns: 1.1fr 1fr; }
+}
+.pt__cellart { position: relative; aspect-ratio: 16 / 10; overflow: hidden; }
+.pt__celltext { padding: clamp(24px, 3vw, 34px); padding-top: 0; }
+@media (min-width: 760px) {
+  .pt__celltext { padding: clamp(24px, 3vw, 40px); padding-left: 0; }
+}
+
+.pt__cell--tint {
+  background:
+    radial-gradient(120% 140% at 12% 0%, var(--pt-glow-2), transparent 62%),
+    var(--pt-card);
+}
+
+/* --- the offset editorial block -------------------------------------------- */
+.pt__editorial { max-width: var(--pt-max); margin-inline: auto; }
+.pt__editorial > div { max-width: 900px; }
+.pt__editorial blockquote {
+  margin: 0;
+  font-size: clamp(26px, 3.9vw, 46px);
+  line-height: 1.16;
+  font-weight: 620;
+  letter-spacing: -0.025em;
   color: var(--pt-text);
+  max-width: 20ch;
 }
-.pt__qs summary::-webkit-details-marker { display: none; }
-.pt__qs summary::after {
-  content: "";
-  position: absolute;
-  right: 6px; top: 50%;
-  width: 9px; height: 9px;
-  margin-top: -6px;
-  border-right: 1.8px solid var(--pt-dim);
-  border-bottom: 1.8px solid var(--pt-dim);
-  transform: rotate(45deg);
-  transition: transform 180ms ease;
+.pt__editorial p {
+  margin-top: 30px;
+  max-width: 52ch;
+  font-size: 17px;
 }
-.pt__qs details[open] summary::after { transform: rotate(-135deg); margin-top: -2px; }
-.pt__qs details p { padding: 0 40px 22px 0; font-size: 16px; max-width: 62ch; }
 
-/* --- close ------------------------------------------------------------------------ */
-.pt__close { text-align: center; border-top: 1px solid var(--pt-line); }
-.pt__close > div { display: grid; justify-items: center; gap: 20px; }
-.pt__close h2 { font-size: clamp(27px, 4vw, 46px); line-height: 1.12; font-weight: 660; }
-.pt__close .pt__reassure { margin-top: -8px; }
+/* --- the wide band with the island ----------------------------------------- */
+.pt__band { max-width: var(--pt-max); margin-inline: auto; }
+.pt__bandart {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--pt-r);
+  border: 1px solid var(--pt-shot-edge);
+  box-shadow: var(--pt-shadow);
+  aspect-ratio: 16 / 9;
+}
+.pt__bandimg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
+
+.pt__bandtext { margin-top: clamp(28px, 4vw, 46px); }
+
+/* The heading sits above its text rather than beside it. Beside it, a big
+   left headline with a small paragraph floating in the right column, is the
+   layout every generated page reaches for, and it reads as two fragments. */
+.pt__bandcols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+@media (min-width: 900px) {
+  .pt__bandcols { grid-template-columns: 1fr 1fr; column-gap: clamp(40px, 6vw, 80px); }
+}
+.pt__bandtext h2 {
+  font-size: clamp(27px, 3.6vw, 42px);
+  line-height: 1.14;
+  font-weight: 640;
+  max-width: 14ch;
+}
+.pt__bandtext p { font-size: 17px; max-width: 46ch; }
+.pt__note { opacity: 0.82; font-size: 15.5px; }
+
+/* --- plans teaser ----------------------------------------------------------- */
+.pt__plans { text-align: center; }
+.pt__plans > div { max-width: 640px; margin-inline: auto; }
+.pt__plans h2 { font-size: clamp(28px, 4vw, 46px); line-height: 1.12; font-weight: 650; }
+.pt__planline { margin-top: 20px; font-size: 17px; }
+
+/* --- the last word ---------------------------------------------------------- */
+.pt__start {
+  text-align: center;
+  border-top: 1px solid var(--pt-line);
+  background: radial-gradient(90% 120% at 50% 0%, var(--pt-glow-1), transparent 64%);
+}
+.pt__start > div { display: grid; justify-items: center; gap: 22px; }
+.pt__start h2 { font-size: clamp(28px, 4.4vw, 50px); line-height: 1.1; font-weight: 660; }
 
 .pt__foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 24px var(--pt-gutter) 32px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 26px var(--pt-gutter) 34px;
   border-top: 1px solid var(--pt-line);
   color: var(--pt-dim);
   font-size: 14px;
 }
+.pt__foot div { display: flex; gap: 20px; }
 .pt__foot a { color: var(--pt-dim); text-decoration: none; }
 .pt__foot a:hover { color: var(--pt-text); }
 
-/* --- arrival ----------------------------------------------------------------------- */
+/* --- arrival ----------------------------------------------------------------
+   A short rise and fade, once, when the section is reached. Transform and
+   opacity only, so it composites on the GPU. */
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 600ms cubic-bezier(.16, 1, .3, 1),
-              transform 600ms cubic-bezier(.16, 1, .3, 1);
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(.16, 1, .3, 1),
+              transform 620ms cubic-bezier(.16, 1, .3, 1);
 }
 .reveal[data-shown="true"] { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
-  .pt__btn, .pt__qs summary::after { transition: none; }
+  .pt__btn { transition: none; }
 }
 
+/* --- narrow -----------------------------------------------------------------
+   Below this, holding the headline to one line would mean a 30px headline,
+   which is not a headline. So it is allowed to wrap, and `pretty` is what
+   stops the wrap leaving "working" alone on the last line. */
+@media (max-width: 759px) {
+  .pt__herotext h1 { font-size: clamp(31px, 7.4vw, 46px); }
+  /* The written break for the narrow layout - see the headline markup. */
+  .pt__herotext h1 .pt__brk { display: inline; }
+}
+
+/* --- on a phone -------------------------------------------------------------
+   The wordmark pushed the nav onto two lines, so below 560px the mark stands
+   alone. It is the same logo on the same blue, and the page title is the next
+   thing you read anyway. */
 @media (max-width: 560px) {
-  .pt__brand span:last-child { display: none; }
-  .pt__hero h1 { font-size: min(30px, 7.6vw); }
-  .pt__cta { display: grid; grid-template-columns: 1fr; justify-items: start; }
+  .pt__brand span { display: none; }
+  .pt__toggle { min-width: 0; padding: 8px 12px; }
+  .pt__toggle span:last-child { display: none; }
+
+  .pt__herotext p { font-size: 16px; max-width: none; }
+
+  /* Full width, stacked, so neither button is a thumb-width target next to a
+     gap it could miss. */
+  .pt__cta { display: grid; grid-template-columns: 1fr; gap: 10px; width: 100%; }
   .pt__cta .pt__btn { width: 100%; }
 }

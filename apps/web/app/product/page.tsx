@@ -10,9 +10,9 @@ import './product.css'
  * without changing how anyone reaches the product itself.
  */
 export const metadata: Metadata = {
-  title: 'AI Agents World - a workforce you can give one sentence to',
+  title: 'AI Agents World - ask once, watch the AI agents working',
   description:
-    'Most AI tools answer a question and hand the work back. This one takes the work: describe an outcome, and a team of specialist agents does it while you watch.',
+    'You give one goal. It is split into tasks, handed to the specialist agents that fit, and comes back as one answer - on an island where you can watch the work happen.',
 }
 
 export default function Page() {
