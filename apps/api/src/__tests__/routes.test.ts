@@ -111,14 +111,76 @@ test('the connector catalogue marks unconfigured providers as blocked', async ()
   assert.equal(teams?.status, 'planned', 'Teams shows as coming, not as broken')
 })
 
-test('every data route refuses an unauthenticated caller', async () => {
-  for (const url of ['/connections', '/goals', '/approvals', '/integrations', '/history', '/usage', '/agents/instructions']) {
+test('every route carrying a customer\'s own data refuses an unauthenticated caller', async () => {
+  /*
+   * /integrations is deliberately not on this list any more - see the test
+   * below. Everything here answers a question about one workspace, and there
+   * is no way to ask it except as a member of that workspace.
+   */
+  for (const url of ['/connections', '/goals', '/approvals', '/history', '/usage', '/agents/instructions']) {
     const res = await app.inject({ method: 'GET', url })
     assert.equal(res.statusCode, 401, `${url} must require a session`)
   }
 
   const post = await app.inject({ method: 'POST', url: '/goals', payload: { prompt: 'do a thing' } })
   assert.equal(post.statusCode, 401)
+
+  // Writes that belong to a workspace, including the two that are new.
+  const rename = await app.inject({ method: 'PUT', url: '/agents/finance/name', payload: { name: 'Muse' } })
+  assert.equal(rename.statusCode, 401, 'renaming an agent must require a session')
+
+  const instructions = await app.inject({
+    method: 'PUT',
+    url: '/agents/finance/instructions',
+    payload: { instructions: 'hello' },
+  })
+  assert.equal(instructions.statusCode, 401, 'saving instructions must require a session')
+})
+
+/**
+ * The tool catalogue is readable without an account, and says nothing about
+ * anybody.
+ *
+ * Someone handed a link to this product can walk around it before deciding
+ * whether to have an account, and the Tools screen is part of what they are
+ * deciding about. The catalogue itself is the same for everyone - it is a list
+ * of what this product can integrate with, not a fact about a customer.
+ *
+ * What must never leak is the other half of that screen: which accounts are
+ * connected. A caller with no session has connected nothing, and this asserts
+ * the answer says exactly that rather than borrowing somebody else's.
+ */
+test('the tool catalogue is readable without a session, and shows no connections', async () => {
+  // A workspace exists and has a live connection, so there is something to
+  // leak if the route ever forgets whose question it is answering.
+  const { userId, workspaceId } = await seedWorkspace(db)
+  const { saveConnection } = await import('../tools/connections.js')
+  await saveConnection(workspaceId, userId, 'google', {
+    accessToken: 'token',
+    refreshToken: null,
+    expiresAt: new Date(Date.now() + 3_600_000),
+    scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+    accountLabel: 'someone@example.com',
+  })
+
+  const signedIn = await app.inject({
+    method: 'GET',
+    url: '/integrations',
+    headers: { cookie: await cookieFor(userId, workspaceId) },
+  })
+  const theirs = signedIn.json() as { connection: unknown }[]
+  assert.ok(theirs.some((i) => i.connection !== null), 'the member can see their own connection')
+
+  const guest = await app.inject({ method: 'GET', url: '/integrations' })
+  assert.equal(guest.statusCode, 200, 'a guest can read the catalogue')
+
+  const list = guest.json() as { id: string; name: string; connection: unknown }[]
+  assert.ok(list.length > 0, 'and it is not empty')
+  assert.equal(
+    list.filter((i) => i.connection !== null).length,
+    0,
+    'a guest was shown a connection belonging to somebody else',
+  )
 })
 
 /**

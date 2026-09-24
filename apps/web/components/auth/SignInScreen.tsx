@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
+import { forgetViewer } from '@/lib/viewer'
 import { Backdrop } from '@/components/world/Backdrop'
 import { Logo } from '@/components/brand/Logo'
 
@@ -31,8 +32,16 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function SignInScreen() {
   const router = useRouter()
+  const params = useSearchParams()
 
-  const [mode, setMode] = useState<Mode>('signin')
+  /*
+   * Which door was knocked on.
+   *
+   * A guest sent here by "Create a free account" should land on the register
+   * form, not on a sign-in form with a link to it. Anyone arriving without a
+   * preference gets sign-in, which is what a returning person wants.
+   */
+  const [mode, setMode] = useState<Mode>(params.get('mode') === 'register' ? 'register' : 'signin')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -91,6 +100,10 @@ export function SignInScreen() {
       } else {
         await api.login(email, password)
       }
+      // The cached answer to "who is looking" is now wrong, and the next
+      // screen is reached without a page load - so nothing would refetch it
+      // and the command bar would still treat them as a guest.
+      forgetViewer()
       router.replace('/world')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')

@@ -1,13 +1,16 @@
-import { SignInScreen } from '@/components/auth/SignInScreen'
+import { redirect } from 'next/navigation'
 
 /**
  * The front door.
  *
- * This used to be a separate landing page with a Get started button that led
- * to the sign-in page - two screens saying the same sentence, the first of
- * which existed to be clicked past. The pitch and the form are one screen
- * now, and `/signin` renders it too so nothing that linked there breaks.
+ * It used to be the sign-in form. Someone handed a link to this product met a
+ * password box before they had seen a single thing it does, which is a lot to
+ * ask of a stranger - so the door now opens onto the product itself and the
+ * form waits at /signin until there is a reason to show it.
+ *
+ * A redirect rather than a second copy of the world: one implementation of
+ * Home, reached two ways, so they cannot drift apart.
  */
-export default function HomePage() {
-  return <SignInScreen />
+export default function Page() {
+  redirect('/world')
 }

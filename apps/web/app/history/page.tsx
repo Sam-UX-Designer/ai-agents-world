@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { api, type AgentInfo, type HistoryEntry, type Me } from '@/lib/api'
 import { mascotSrc } from '@/components/ui/AgentAvatar'
+import { useViewer } from '@/lib/viewer'
 import { Backdrop } from '@/components/world/Backdrop'
 import { Chrome } from '@/components/world/Chrome'
 import { CommandBar } from '@/components/world/World'
@@ -85,6 +87,7 @@ function useIsPhone(): boolean {
 
 export default function HistoryPage() {
   const router = useRouter()
+  const viewer = useViewer()
 
   const [me, setMe] = useState<Me | null>(null)
   const [agents, setAgents] = useState<readonly AgentInfo[]>([])
@@ -114,7 +117,19 @@ export default function HistoryPage() {
     }
   }, [])
 
-  useEffect(() => { void load(days) }, [days, load])
+  useEffect(() => {
+    /*
+     * A guest has no history, and that is not an error.
+     *
+     * Asking anyway returned a 401 and painted "Sign in to continue" in red
+     * across a screen someone was only looking at. An empty list is the true
+     * answer for somebody with no account, so it is the one shown - with the
+     * empty state saying what would fill it.
+     */
+    if (viewer.state === 'guest') { setEntries([]); setError(null); return }
+    if (viewer.state === 'loading') return
+    void load(days)
+  }, [days, load, viewer.state])
 
   const visible = useMemo(() => {
     if (!entries) return []
@@ -249,7 +264,11 @@ export default function HistoryPage() {
                 ))}
               </div>
             ) : visible.length === 0 ? (
-              <Empty hasHistory={(entries?.length ?? 0) > 0} onStart={() => router.push('/world')} />
+              <Empty
+                hasHistory={(entries?.length ?? 0) > 0}
+                guest={viewer.state === 'guest'}
+                onStart={() => router.push('/world')}
+              />
             ) : (
               <div className="hist__table lg" role="table" aria-label="Past goals">
                 <div className="hist__thead" role="row">
@@ -504,7 +523,30 @@ function Detail({
   )
 }
 
-function Empty({ hasHistory, onStart }: { hasHistory: boolean; onStart: () => void }) {
+function Empty({
+  hasHistory,
+  guest,
+  onStart,
+}: {
+  hasHistory: boolean
+  /** Signed out: there is nothing here yet because there is no account yet. */
+  guest: boolean
+  onStart: () => void
+}) {
+  if (guest) {
+    return (
+      <div className="tools__empty lg">
+        <strong>Every run is kept here</strong>
+        <p>
+          What you asked for, which agents did it, which tools they used and
+          what came back - each goal, start to finish. This fills up once you
+          have an account to keep it in.
+        </p>
+        <Link href="/signin" className="btn btn--primary">Create a free account</Link>
+      </div>
+    )
+  }
+
   return (
     <div className="tools__empty lg">
       <strong>{hasHistory ? 'Nothing matches those filters' : 'No history yet'}</strong>

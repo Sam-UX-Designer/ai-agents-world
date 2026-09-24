@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { api, type BillingState, type HistoryEntry, type Usage } from '@/lib/api'
 import { Logo } from '@/components/brand/Logo'
 import { useWorld } from '@/lib/store'
+import { forgetViewer } from '@/lib/viewer'
 
 /**
  * The chrome that floats over the world: branding, navigation, account.
@@ -178,14 +179,28 @@ function TopRight({ user }: { user: { name: string | null } | null }) {
         onToggle={() => toggle('bell')}
       />
 
-      <button
-        className="iconbtn iconbtn--avatar"
-        aria-label="Account"
-        aria-expanded={open === 'profile'}
-        onClick={() => toggle('profile')}
-      >
-        {(user?.name ?? 'S').charAt(0).toUpperCase()}
-      </button>
+      {/*
+        A guest gets the way in, not a letter.
+
+        This drew `(user?.name ?? 'S')` - a stranger who had never signed in
+        was shown an initial belonging to nobody, on a menu about an account
+        they do not have. The world never invents state, and an account is
+        state.
+      */}
+      {user ? (
+        <button
+          className="iconbtn iconbtn--avatar"
+          aria-label="Account"
+          aria-expanded={open === 'profile'}
+          onClick={() => toggle('profile')}
+        >
+          {(user.name ?? '?').charAt(0).toUpperCase()}
+        </button>
+      ) : (
+        <Link href="/signin" className="btn btn--primary chrome__signin">
+          Sign in
+        </Link>
+      )}
 
       {open === 'search' && <SearchPanel onClose={() => setOpen(null)} />}
       {open === 'profile' && <ProfileMenu user={user} onClose={() => setOpen(null)} />}
@@ -353,6 +368,9 @@ function ProfileMenu({
     setSigningOut(true)
     try { await api.signOut() } catch { /* the cookie may already be gone */ }
     useWorld.getState().reset()
+    // Same reason as signing in: the next screen is reached without a page
+    // load, so the cached identity has to go with the session.
+    forgetViewer()
     onClose()
     router.replace('/signin')
   }, [onClose, router])
@@ -360,7 +378,7 @@ function ProfileMenu({
   return (
     <div className="pop pop--profile lg" role="dialog" aria-label="Account">
       <div className="pop__who">
-        <span className="pop__avatar">{(user?.name ?? 'S').charAt(0).toUpperCase()}</span>
+        <span className="pop__avatar">{(user?.name ?? '?').charAt(0).toUpperCase()}</span>
         <span>
           <strong>{user?.name ?? 'Signed in'}</strong>
           {/* The plan the server says they are on, not a label the client

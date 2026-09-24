@@ -9,15 +9,18 @@ import {
  */
 
 test.describe('the way in', () => {
-  test('one screen, both doors, and no theme toggle', async ({ page }) => {
-    for (const path of ['/', '/signin']) {
-      await page.goto(path)
-      await expect(page.locator('.entry__headline')).toContainText('Your AI workforce')
-      await expect(page.locator('.entry__card')).toBeVisible()
-      // The pitch and the form are on the same screen: no Get started step.
-      await expect(page.locator('.entry__points li')).toHaveCount(3)
-      await expect(page.locator('.auth__theme, .entry__theme')).toHaveCount(0)
-    }
+  test('the sign-in screen is one screen, and no theme toggle', async ({ page }) => {
+    /*
+     * `/` used to render this too. It opens the product now - a stranger
+     * handed a link meets the island rather than a password box - so the form
+     * lives at /signin alone. See 12-guest.spec.ts for the door itself.
+     */
+    await page.goto('/signin')
+    await expect(page.locator('.entry__headline')).toContainText('Your AI workforce')
+    await expect(page.locator('.entry__card')).toBeVisible()
+    // The pitch and the form are on the same screen: no Get started step.
+    await expect(page.locator('.entry__points li')).toHaveCount(3)
+    await expect(page.locator('.auth__theme, .entry__theme')).toHaveCount(0)
   })
 
   test('a phone number in the email field is refused, in words', async ({ page }) => {

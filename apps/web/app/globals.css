@@ -3129,6 +3129,72 @@ body { min-height: 100%; }
 .pop__out:hover { background: rgb(251 113 133 / 0.1); color: var(--color-danger); }
 .pop__out:disabled { opacity: .5; cursor: not-allowed; }
 
+/* The way in, where a signed-in person's avatar sits. Same height as the
+   icon buttons beside it so the row stays level. */
+.chrome__signin {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+@media (max-width: 560px) { .chrome__signin { padding: 0 12px; font-size: 13px; } }
+
+/* ===========================================================================
+   The sign-in gate
+   ---------------------------------------------------------------------------
+   Raised when a guest tries to do something an account is needed for. It
+   covers the screen because the choice deserves the whole attention, and it
+   closes on the backdrop, on Escape and on its own button - a guest who
+   changes their mind lands back on the product, which is the thing this whole
+   flow exists to protect.
+   =========================================================================== */
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(4 7 13 / 0.62);
+  backdrop-filter: blur(6px);
+  animation: gate-in 180ms ease both;
+}
+@keyframes gate-in { from { opacity: 0 } to { opacity: 1 } }
+
+.gate__card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  padding: 30px 26px 22px;
+  text-align: center;
+}
+
+.gate__title { margin: 0; font-size: 21px; font-weight: 660; letter-spacing: -0.02em; text-wrap: balance; }
+.gate__body { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--color-text-dim); text-wrap: pretty; }
+
+.gate__actions { display: grid; gap: 9px; width: 100%; margin-top: 4px; }
+/* Full width and stacked: on a phone these are the two things being decided
+   between, and a pair of half-width buttons is two small targets. */
+.gate__go { width: 100%; justify-content: center; padding: 12px 18px; font-size: 14px; }
+
+.gate__back {
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gate__back:hover { color: var(--color-text); }
+
+@media (prefers-reduced-motion: reduce) { .gate { animation: none } }
+
 /* ===========================================================================
    An agent's picture
    ---------------------------------------------------------------------------

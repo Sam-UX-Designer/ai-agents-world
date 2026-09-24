@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SignInGate } from '@/components/auth/SignInGate'
+import { useViewer } from '@/lib/viewer'
 import { api, type IntegrationInfo, type Me } from '@/lib/api'
 import { Backdrop } from '@/components/world/Backdrop'
 import { Chrome } from '@/components/world/Chrome'
@@ -33,8 +35,11 @@ const SUGGESTIONS = [
 
 export default function ToolsPage() {
   const router = useRouter()
+  const viewer = useViewer()
 
   const [me, setMe] = useState<Me | null>(null)
+  /** Set to what a guest just tried to do, which opens the sign-in gate. */
+  const [gated, setGated] = useState<string | null>(null)
   const [tools, setTools] = useState<readonly IntegrationInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -95,6 +100,12 @@ export default function ToolsPage() {
 
   const connect = async (tool: IntegrationInfo) => {
     if (!tool.provider || tool.status !== 'available') return
+    /*
+     * A guest can read the whole catalogue - that is the point of letting them
+     * in - but connecting means handing this product a Google account, and
+     * there is nowhere to hang that token without a workspace to put it in.
+     */
+    if (viewer.state !== 'member') { setGated(`connect ${tool.name}`); return }
     setConnecting(tool.id)
     setError(null)
     try {
@@ -110,6 +121,7 @@ export default function ToolsPage() {
 
   const disconnect = async (tool: IntegrationInfo) => {
     if (!tool.connection) return
+    if (viewer.state !== 'member') { setGated(`manage ${tool.name}`); return }
     try {
       await api.disconnect(tool.connection.id)
       await load()
@@ -157,7 +169,7 @@ export default function ToolsPage() {
 
             <button
               className="btn btn--primary btn--request"
-              onClick={() => setRequesting(true)}
+              onClick={() => (viewer.state === 'member' ? setRequesting(true) : setGated('ask for a tool'))}
               // The label collapses to the icon on a phone, where a full-width
               // search box and a five-word button cannot share one row.
               aria-label="Request a tool"
@@ -204,7 +216,7 @@ export default function ToolsPage() {
               <div className="tools__empty lg">
                 <strong>No tools match “{query || category}”</strong>
                 <p>Try another search, or ask us to build it.</p>
-                <button className="btn btn--primary" onClick={() => setRequesting(true)}>
+                <button className="btn btn--primary" onClick={() => (viewer.state === 'member' ? setRequesting(true) : setGated('ask for a tool'))}>
                   Request {query.trim() ? `“${query.trim()}”` : 'a tool'}
                 </button>
               </div>
@@ -241,6 +253,14 @@ export default function ToolsPage() {
 
       {requesting && (
         <RequestTool prefill={query.trim()} onClose={() => { setRequesting(false); }} />
+      )}
+
+      {gated && (
+        <SignInGate
+          action={gated}
+          detail="Connecting a tool hands this product a real account, so it needs a workspace of your own to keep it in. Reading what each tool does needs nothing."
+          onClose={() => setGated(null)}
+        />
       )}
 
       {/* The same input as Home. Asking for something is always one reach

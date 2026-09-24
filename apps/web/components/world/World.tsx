@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentInfo, BillingState } from '@/lib/api'
 import { AgentAvatar, mascotSrc } from '@/components/ui/AgentAvatar'
+import { SignInGate, parkPrompt, takeParkedPrompt } from '@/components/auth/SignInGate'
+import { useViewer } from '@/lib/viewer'
 import { ApiError, api } from '@/lib/api'
 import { ISLAND_ART } from '@agents-world/shared'
 import { pointOn, useCoverRect, type CoverRect } from '@/lib/coverRect'
@@ -670,11 +672,13 @@ export function CommandBar({
   onStarted: (goalId: string) => void
   suggestions?: readonly string[]
 }) {
+  const viewer = useViewer()
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** Set when the refusal was about credit, so the error can offer a way out. */
   const [blocked, setBlocked] = useState(false)
+  const [gated, setGated] = useState(false)
   const [balance, setBalance] = useState<BillingState | null>(null)
   const input = useRef<HTMLTextAreaElement>(null)
 
@@ -685,11 +689,42 @@ export function CommandBar({
     api.billing().then(setBalance).catch(() => undefined)
   }, [])
 
-  useEffect(() => loadBalance(), [loadBalance])
+  // A guest has no wallet, and asking for one is a 401 in their console and a
+  // credit line that says nothing.
+  useEffect(() => {
+    if (viewer.state === 'member') loadBalance()
+  }, [viewer.state, loadBalance])
+
+  /*
+   * Give back what they were typing before they were sent to sign in.
+   *
+   * Losing it is the part that makes a mid-task sign-in feel like a
+   * punishment: they wrote the sentence once, met a form, and have to
+   * remember it. It comes back in the box, ready to send.
+   */
+  useEffect(() => {
+    if (viewer.state !== 'member') return
+    const parked = takeParkedPrompt()
+    if (parked) {
+      setPrompt(parked)
+      input.current?.focus()
+    }
+  }, [viewer.state])
 
   const submit = useCallback(async () => {
     const trimmed = prompt.trim()
     if (!trimmed || busy) return
+
+    /*
+     * This is the line a guest meets. Not at the front door, here - at the
+     * first thing that would actually spend an agent's time. They have seen
+     * the island and the tools by now and know what they are signing up for.
+     */
+    if (viewer.state !== 'member') {
+      parkPrompt(trimmed)
+      setGated(true)
+      return
+    }
 
     setBusy(true)
     setError(null)
@@ -710,7 +745,7 @@ export function CommandBar({
     } finally {
       setBusy(false)
     }
-  }, [prompt, busy, onStarted, loadBalance])
+  }, [prompt, busy, onStarted, loadBalance, viewer.state])
 
   const onTranscript = useCallback((text: string) => setPrompt(text), [])
   const onFinal = useCallback(() => input.current?.focus(), [])
@@ -789,6 +824,14 @@ export function CommandBar({
             : `${balance.total} credit${balance.total === 1 ? '' : 's'} left.`}{' '}
           <Link href="/pricing">See plans</Link>
         </p>
+      )}
+
+      {gated && (
+        <SignInGate
+          action="send this to your agents"
+          detail="Your goal is saved - sign in and it will be waiting in the box. Five credits a day on the free plan, and no card."
+          onClose={() => setGated(false)}
+        />
       )}
     </div>
   )

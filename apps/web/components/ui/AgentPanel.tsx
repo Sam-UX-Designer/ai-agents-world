@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentState } from '@agents-world/shared'
 import { api, type AgentInfo } from '@/lib/api'
 import { AgentAvatar } from './AgentAvatar'
+import { SignInGate } from '@/components/auth/SignInGate'
+import { useViewer } from '@/lib/viewer'
 import { useWorld } from '@/lib/store'
 
 /**
@@ -303,14 +305,20 @@ const isAutonomous = (effect: string): boolean =>
  * to the workspace and read fresh on every dispatch, so the next run uses it.
  */
 function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentName: string }) {
+  const viewer = useViewer()
   const [text, setText] = useState('')
   const [saved, setSaved] = useState('')
   const [state, setState] = useState<'loading' | 'idle' | 'saving' | 'done' | 'error'>('loading')
+  const [gated, setGated] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let live = true
+    // A guest has no saved instructions to fetch, and asking is a 401.
+    if (viewer.state === 'guest') { setText(''); setSaved(''); setState('idle'); return }
+    if (viewer.state === 'loading') return
+
     setState('loading')
     api
       .agentInstructions()
@@ -323,11 +331,12 @@ function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentNa
       })
       .catch(() => { if (live) setState('idle') })
     return () => { live = false }
-  }, [agentKey])
+  }, [agentKey, viewer.state])
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   const save = useCallback(async () => {
+    if (viewer.state !== 'member') { setGated(true); return }
     setState('saving')
     setMessage(null)
     try {
@@ -340,7 +349,7 @@ function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentNa
       setState('error')
       setMessage(err instanceof Error ? err.message : 'Could not save those instructions')
     }
-  }, [agentKey, text])
+  }, [agentKey, text, viewer.state])
 
   if (state === 'loading') {
     return <p className="instr__hint">Loading your instructions…</p>
@@ -383,6 +392,14 @@ function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentNa
       </div>
 
       {message && <p role="alert" className="instr__error">{message}</p>}
+
+      {gated && (
+        <SignInGate
+          action={`tell ${agentName} about your work`}
+          detail="Standing instructions belong to a workspace and are read on every run. Yours needs an account to live in."
+          onClose={() => setGated(false)}
+        />
+      )}
     </div>
   )
 }
@@ -411,9 +428,11 @@ function AgentName({
   agent: AgentInfo
   onRenamed?: (agentKey: string, name: string) => void
 }) {
+  const viewer = useViewer()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(agent.name)
   const [saving, setSaving] = useState(false)
+  const [gated, setGated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
 
@@ -433,6 +452,12 @@ function AgentName({
 
   const commit = useCallback(
     async (value: string) => {
+      /*
+       * A guest may open the field and type in it - seeing that the name is
+       * yours to choose is part of understanding the product - but the name
+       * belongs to a workspace, and there is no workspace to save it to.
+       */
+      if (viewer.state !== 'member') { setGated(true); return }
       setSaving(true)
       setError(null)
       try {
@@ -446,11 +471,21 @@ function AgentName({
         setSaving(false)
       }
     },
-    [agent.key, onRenamed],
+    [agent.key, onRenamed, viewer.state],
   )
+
+  const gate = gated ? (
+    <SignInGate
+      action={`name ${agent.defaultName} yourself`}
+      detail="Agents are yours to name, per workspace. Yours needs an account to live in."
+      onClose={() => setGated(false)}
+    />
+  ) : null
 
   if (!editing) {
     return (
+      <>
+        {gate}
       <button
         className="rename__name"
         onClick={() => { setDraft(agent.name); setEditing(true) }}
@@ -467,6 +502,7 @@ function AgentName({
           />
         </svg>
       </button>
+      </>
     )
   }
 
@@ -523,6 +559,7 @@ function AgentName({
       </div>
 
       {error && <p role="alert" className="instr__error">{error}</p>}
+      {gate}
     </div>
   )
 }

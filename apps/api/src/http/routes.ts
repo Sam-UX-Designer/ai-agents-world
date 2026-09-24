@@ -420,9 +420,19 @@ export async function registerRoutes(
    */
   app.get('/integrations', async (request, reply) => {
     try {
-      const ctx = await authenticate(request)
-      const connections = await listConnections(ctx.workspaceId)
-      const agentNames = await listAgentNames(ctx.workspaceId)
+      /*
+       * Readable without signing in.
+       *
+       * A guest walking the product needs to see what the tools are before
+       * deciding whether to have an account, and this is the catalogue - it is
+       * the same for everyone. What is NOT the same is what is connected, and
+       * a caller with no session has connected nothing, so every integration
+       * honestly reports itself disconnected. There is no path here that shows
+       * a connection that does not exist.
+       */
+      const workspaceId = await workspaceOrNull(request)
+      const connections = workspaceId ? await listConnections(workspaceId) : []
+      const agentNames = workspaceId ? await listAgentNames(workspaceId) : {}
 
       return INTEGRATIONS.map((integration) => {
         // A provider token is shared across the integrations that sit on it -
