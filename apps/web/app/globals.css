@@ -505,8 +505,29 @@ body { min-height: 100%; }
   bottom: -8px;
   transform: translateX(-50%);
   width: 54px;
+  /*
+   * Tailwind's preflight sets `img { max-width: 100% }`, and the station
+   * anchor above is deliberately zero-sized - so 100% of it is 0, and every
+   * mascot collapsed to nothing the moment the renders were uploaded. It
+   * looked exactly like the files being missing, because the glow fallback
+   * only shows on a load error and these loaded fine.
+   */
+  max-width: none;
   height: auto;
   pointer-events: none;
+  /*
+   * Rounded and rimmed, because the supplied renders are square avatars on a
+   * near-white card rather than cut-out characters - measured, not assumed:
+   * the files carry no alpha channel and their corners read 253,253,254. Drawn
+   * raw they are white squares sitting on the island. Framed, they read as the
+   * same avatar chip the agent's card already uses, which is where these
+   * renders look right.
+   *
+   * If cut-outs with transparent backgrounds are uploaded later, this rule is
+   * the only thing to remove.
+   */
+  border-radius: 12px;
+  border: 1px solid rgb(255 255 255 / 0.22);
   filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.5));
   transition: opacity 300ms ease, transform 300ms ease;
 }
