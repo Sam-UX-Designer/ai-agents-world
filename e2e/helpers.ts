@@ -141,3 +141,72 @@ export async function canPan(page: Page): Promise<boolean> {
 export async function canPanY(page: Page): Promise<boolean> {
   return page.locator('.world').evaluate((el) => el.scrollHeight > el.clientHeight + 1)
 }
+
+/**
+ * Open an agent's panel, whichever agent is actually reachable.
+ *
+ * Naming one made this a test of where the island happens to be sitting: on a
+ * phone the island is wider than the viewport, so any particular agent may be
+ * off the edge until someone pans to it. Pass `want` only when the test needs
+ * that exact agent back - after a reload, say - and it will sweep to find it.
+ *
+ * Returns the name shown on the station, which is what the panel should then
+ * be showing too.
+ */
+export async function openAnyAgent(page: Page, want?: string): Promise<string> {
+  /*
+   * Wait for the roster before reading it.
+   *
+   * evaluateAll does not auto-wait: it resolves with whatever matches at that
+   * instant, and a reload puts this back to an empty island for about a
+   * second. Measured rather than guessed - sampling straight after a reload
+   * returns [], and 1.5s later returns all nine stations exactly where they
+   * were.
+   */
+  await expect(page.locator('.station').first()).toBeAttached()
+
+  // The island does not scroll the page, it pans - so scrollIntoViewIfNeeded
+  // can do nothing for a station that is off the edge. Ask which stations are
+  // actually in front of the viewport.
+  const reachable = (wanted: string | null) =>
+    page.locator('.station').evaluateAll(
+      (els, w) =>
+        els.findIndex((el) => {
+          const r = el.getBoundingClientRect()
+          const onScreen = r.x > 8 && r.right < window.innerWidth - 8
+          const name = el.querySelector('.marker__label strong')?.textContent?.trim()
+          const notHub = el.querySelector('.marker[data-primary="true"]') === null
+          return onScreen && notHub && (!w || name === w)
+        }),
+      wanted,
+    )
+
+  /*
+   * Pan to one if none is in front of us.
+   *
+   * A phone shows about a fifth of the island at a time, so which agent you
+   * can reach is a function of where the island happens to be sitting - and at
+   * the middle, which is where it starts, the answer can be none of them.
+   * Sweeping to it is what a person does, so it is what the test does.
+   */
+  let index = await reachable(want ?? null)
+  if (index < 0) {
+    const step = Math.round((page.viewportSize()?.width ?? 1440) / 2)
+    await panIsland(page, -100_000)
+    for (let i = 0; i < 40; i++) {
+      index = await reachable(want ?? null)
+      if (index >= 0) break
+      const before = await panOffset(page)
+      await panIsland(page, step)
+      if ((await panOffset(page)) === before) break
+    }
+    if (index < 0) index = await reachable(want ?? null)
+  }
+  expect(index, 'a station is reachable on this screen').toBeGreaterThanOrEqual(0)
+
+  const station = page.locator('.station').nth(index)
+  const name = (await station.locator('.marker__label strong').innerText()).trim()
+  await station.locator('.marker').click()
+  await expect(page.locator('.agent-dock')).toBeVisible()
+  return name
+}

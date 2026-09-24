@@ -11,7 +11,7 @@ import {
   type PlannedTask,
   type TaskState,
 } from '@agents-world/shared'
-import { getInstructions } from '../agents/instructions.js'
+import { getInstructions, listAgentNames } from '../agents/overrides.js'
 import { refundGoal } from '../billing/wallet.js'
 import { getWorkspace } from '../auth/workspaces.js'
 import { db, schema } from '../db/client.js'
@@ -78,6 +78,7 @@ export async function runGoal(
       model: plan.model,
       effort: plan.effort,
       maxAgents: plan.maxAgents,
+      agentNames: await listAgentNames(input.workspaceId),
       ...(input.attachedFilenames ? { attachedFiles: input.attachedFilenames } : {}),
     })
 

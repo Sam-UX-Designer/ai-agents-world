@@ -61,6 +61,19 @@ export default function HomePage() {
 
   const onStarted = useCallback((id: string) => socket.current?.connect(id), [])
 
+  /*
+   * A rename lands here rather than causing a refetch.
+   *
+   * This array is what the island, the roster and the panel all render from,
+   * so updating it in place is what makes the label over the robot change at
+   * the same moment the header does. A refetch would leave the old name on the
+   * island for as long as the round trip took, which reads as the rename
+   * having half worked.
+   */
+  const onRenamed = useCallback((key: string, name: string) => {
+    setAgents((prev) => prev.map((a) => (a.key === key ? { ...a, name } : a)))
+  }, [])
+
   return (
     <main>
       <World agents={agents} />
@@ -86,7 +99,7 @@ export default function HomePage() {
          * twice in one column.
          */
         <div className="agent-dock">
-          <AgentPanel agents={agents} />
+          <AgentPanel agents={agents} onRenamed={onRenamed} />
         </div>
       ) : (
         <ActiveAgents agents={agents} />

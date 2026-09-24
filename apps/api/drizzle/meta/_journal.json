@@ -29,6 +29,13 @@
       "when": 1789752924680,
       "tag": "0003_billing_wallets_and_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790263399915,
+      "tag": "0004_agent_display_name",
+      "breakpoints": true
     }
   ]
 }

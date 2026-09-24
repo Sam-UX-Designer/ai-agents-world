@@ -263,13 +263,23 @@ export const artifacts = pgTable(
 )
 
 /**
- * A workspace's own instructions for an agent.
+ * A workspace's own settings for an agent: what to call it, and what it should
+ * know that the registry cannot.
  *
  * Layered on top of the agent's built-in expertise rather than replacing it:
  * the registry knows what a Finance Agent is for, and only this workspace
  * knows that its quarter ends in March and that "the board deck" means a
  * particular Google Doc. One row per agent per workspace, so two customers
  * never see each other's.
+ *
+ * `displayName` is null until someone renames the agent, and the built-in name
+ * is used until then. Null rather than a copy of the default on purpose: a
+ * copy would freeze the name as it was on the day the row was written, so
+ * renaming an agent in the registry would silently stop reaching anyone who
+ * had ever saved instructions for it.
+ *
+ * The table is still called agent_instructions because renaming a table that
+ * customers have rows in is a migration with nothing to gain from it.
  */
 export const agentInstructions = pgTable(
   'agent_instructions',
@@ -277,7 +287,10 @@ export const agentInstructions = pgTable(
     id: id(),
     workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
     agentKey: text('agent_key').notNull(),
-    instructions: text('instructions').notNull(),
+    /** Defaults to empty, so a row can exist to carry a name alone. */
+    instructions: text('instructions').notNull().default(''),
+    /** The workspace's own name for this agent. Null means use the built-in. */
+    displayName: text('display_name'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: createdAt(),
   },

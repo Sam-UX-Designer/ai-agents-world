@@ -62,6 +62,16 @@ export interface PlanRequest {
    * that remain.
    */
   readonly maxAgents?: number
+  /**
+   * What this workspace calls its agents, keyed by agent key.
+   *
+   * Only the ones that were actually renamed. The Orchestrator still plans
+   * against the built-in role - that is where the expertise is described, and
+   * a rename must not quietly change who gets a task - but it is told the
+   * chosen name too, so "ask Muse to check the numbers" reaches the agent the
+   * user means rather than failing to match anything.
+   */
+  readonly agentNames?: Readonly<Record<string, string>>
 }
 
 export type PlanResult =
@@ -89,7 +99,10 @@ export interface Usage {
  * the Orchestrator can still avoid handing someone a task they cannot fetch
  * the inputs for.
  */
-function describeRoster(connected: readonly ConnectionProvider[]): string {
+function describeRoster(
+  connected: readonly ConnectionProvider[],
+  names: Readonly<Record<string, string>> = {},
+): string {
   return delegatableAgents()
     .map((agent) => {
       const tools = availableTools(agent, connected)
@@ -97,7 +110,15 @@ function describeRoster(connected: readonly ConnectionProvider[]): string {
         tools.length > 0
           ? `Tools:\n${tools.map((t) => `      - ${t.id}: ${t.label} (${t.effect})`).join('\n')}`
           : 'Tools: none connected - works from its own knowledge and from what earlier tasks return.'
-      return `  ${agent.key} - ${agent.name}\n    ${agent.role}\n    ${belt}`
+      // The built-in name first, because that is what the role description
+      // below is about, and the chosen one after it, because that is what the
+      // user will call it.
+      const chosen = names[agent.key]
+      const title =
+        chosen && chosen !== agent.name
+          ? `${agent.name} (this user calls it "${chosen}")`
+          : agent.name
+      return `  ${agent.key} - ${title}\n    ${agent.role}\n    ${belt}`
     })
     .join('\n\n')
 }
@@ -126,7 +147,7 @@ function buildUserPrompt(req: PlanRequest): string {
 
   return `Available agents and their tools:
 
-${describeRoster(req.connectedProviders)}
+${describeRoster(req.connectedProviders, req.agentNames)}
 
 The user's timezone is ${req.timezone}. Resolve relative dates like "tomorrow" against it.
 

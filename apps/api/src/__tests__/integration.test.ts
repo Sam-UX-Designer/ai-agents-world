@@ -302,13 +302,13 @@ const NO_REPORTS = { onToolCall: () => {}, onStep: () => {} }
  */
 test('a workspace\'s instructions reach the model, after the built-in ones', async () => {
   const { workspaceId } = await seedWorkspace(db)
-  const { setInstructions } = await import('../agents/instructions.js')
+  const { setInstructions } = await import('../agents/overrides.js')
   const { executeTask } = await import('../runtime/executor.js')
   const { AGENT_REGISTRY } = await import('@agents-world/shared')
 
   await setInstructions(workspaceId, 'finance', 'Our quarter ends in March.')
 
-  const { getInstructions } = await import('../agents/instructions.js')
+  const { getInstructions } = await import('../agents/overrides.js')
   const custom = await getInstructions(workspaceId, 'finance')
   assert.equal(custom, 'Our quarter ends in March.', 'saved and read back')
 
@@ -348,6 +348,133 @@ test('a workspace\'s instructions reach the model, after the built-in ones', asy
     /Our quarter ends in March\./,
     'the workspace instruction is genuinely in the prompt',
   )
+})
+
+/**
+ * Renaming an agent.
+ *
+ * The thing that must not break is the key: a rename is a label, and the label
+ * is the only part allowed to move. If a rename touched the key, every task,
+ * event and history row already written would point at an agent that no longer
+ * answers to that name, and the island would lose the robot.
+ */
+test('a workspace can rename an agent, and the key never moves', async () => {
+  const { workspaceId } = await seedWorkspace(db)
+  const { listAgentNames, setAgentName } = await import('../agents/overrides.js')
+
+  assert.deepEqual(await listAgentNames(workspaceId), {}, 'nothing renamed to begin with')
+
+  const saved = await setAgentName(workspaceId, 'finance', '  Muse  ')
+  assert.equal(saved, 'Muse', 'trimmed on the way in')
+  assert.deepEqual(await listAgentNames(workspaceId), { finance: 'Muse' })
+
+  // The row is keyed by agent_key, which is what every other table joins on.
+  const [row] = await db
+    .select()
+    .from(schema.agentInstructions)
+    .where(eq(schema.agentInstructions.workspaceId, workspaceId))
+  assert.equal(row?.agentKey, 'finance', 'still filed under the built-in key')
+})
+
+test('an empty name hands the agent its built-in name back', async () => {
+  const { workspaceId } = await seedWorkspace(db)
+  const { listAgentNames, setAgentName } = await import('../agents/overrides.js')
+
+  await setAgentName(workspaceId, 'finance', 'Muse')
+  const cleared = await setAgentName(workspaceId, 'finance', '   ')
+
+  assert.equal(cleared, null, 'an empty name is a reset, not a blank name')
+  assert.deepEqual(await listAgentNames(workspaceId), {}, 'and the override is gone')
+})
+
+/**
+ * The two overrides share a row, so each has to survive the other being
+ * written. This is the bug that version of the code would otherwise ship:
+ * clearing instructions deleted the row, and the name went with it.
+ */
+test('renaming and instructions do not overwrite each other', async () => {
+  const { workspaceId } = await seedWorkspace(db)
+  const { getInstructions, listAgentNames, setAgentName, setInstructions } =
+    await import('../agents/overrides.js')
+
+  await setAgentName(workspaceId, 'finance', 'Muse')
+  await setInstructions(workspaceId, 'finance', 'Our quarter ends in March.')
+
+  assert.deepEqual(await listAgentNames(workspaceId), { finance: 'Muse' }, 'name survived the save')
+  assert.equal(await getInstructions(workspaceId, 'finance'), 'Our quarter ends in March.')
+
+  // Clearing the instructions must not take the name with them.
+  await setInstructions(workspaceId, 'finance', '')
+  assert.equal(await getInstructions(workspaceId, 'finance'), null)
+  assert.deepEqual(await listAgentNames(workspaceId), { finance: 'Muse' }, 'name is still there')
+
+  // And clearing the name must not take instructions with it.
+  await setInstructions(workspaceId, 'finance', 'Back again.')
+  await setAgentName(workspaceId, 'finance', '')
+  assert.equal(await getInstructions(workspaceId, 'finance'), 'Back again.')
+  assert.deepEqual(await listAgentNames(workspaceId), {})
+})
+
+test('one workspace renaming an agent does not rename it for another', async () => {
+  const mine = await seedWorkspace(db)
+  const theirs = await seedWorkspace(db)
+  const { listAgentNames, setAgentName } = await import('../agents/overrides.js')
+
+  await setAgentName(mine.workspaceId, 'finance', 'Muse')
+
+  assert.deepEqual(await listAgentNames(mine.workspaceId), { finance: 'Muse' })
+  assert.deepEqual(await listAgentNames(theirs.workspaceId), {}, 'the other workspace is untouched')
+})
+
+test('a name is tidied rather than taken literally', async () => {
+  const { normaliseAgentName } = await import('../agents/overrides.js')
+
+  assert.equal(normaliseAgentName('  Muse  '), 'Muse')
+  // A name pasted out of a document arrives with the line break in it, and a
+  // card drawn over the island cannot render one.
+  assert.equal(normaliseAgentName('Money\nDesk'), 'Money Desk')
+  assert.equal(normaliseAgentName('Money   Desk'), 'Money Desk')
+  assert.equal(normaliseAgentName('   '), null)
+  assert.equal(normaliseAgentName(''), null)
+})
+
+/**
+ * The Orchestrator has to hear the chosen name, or "ask Muse to do this" has
+ * nothing to match. It still plans against the built-in role, which is where
+ * the expertise is described - a rename must not change who gets the work.
+ */
+test('the planner is told what this workspace calls its agents', async () => {
+  const { createPlan } = await import('../orchestrator/planner.js')
+
+  // Captures the prompt the planner actually sends, rather than calling a
+  // private helper: what matters is what reaches the model.
+  let prompt = ''
+  const spy = {
+    messages: {
+      parse: async (params: { messages: { content: string }[] }) => {
+        prompt = params.messages[0]?.content ?? ''
+        return {
+          stop_reason: 'end_turn',
+          parsed_output: null,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }
+      },
+    },
+  } as unknown as Parameters<typeof createPlan>[0]
+
+  await createPlan(spy, { goal: 'g', connectedProviders: [], timezone: 'UTC' })
+  assert.match(prompt, /finance - Finance Agent/, 'the built-in name by default')
+  assert.doesNotMatch(prompt, /calls it/)
+
+  await createPlan(spy, {
+    goal: 'g',
+    connectedProviders: [],
+    timezone: 'UTC',
+    agentNames: { finance: 'Muse' },
+  })
+  assert.match(prompt, /finance - Finance Agent \(this user calls it "Muse"\)/)
+  // The key is what the plan comes back with, so it must still be the key.
+  assert.match(prompt, /^ {2}finance - /m)
 })
 
 test('an agent with no custom instructions sends only its built-in prompt', async () => {

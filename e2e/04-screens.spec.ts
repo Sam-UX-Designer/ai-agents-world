@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
-  ONE_AGENT_GOAL, answerText, ask, balance, panIsland, panOffset, signIn,
+  ONE_AGENT_GOAL, answerText, ask, balance, openAnyAgent, signIn,
 } from './helpers'
 
 /**
@@ -87,73 +87,7 @@ test.describe('agent instructions', () => {
   test('instructions save and survive a reload', async ({ page }) => {
     await signIn(page)
 
-    /*
-     * Whichever station is on screen, not a named one.
-     *
-     * On a phone the island is wider than the viewport, so any particular
-     * agent may be off the edge until someone pans to it. Naming one made
-     * this test a test of where the island happens to sit.
-     */
-    const open = async (want?: string) => {
-      /*
-       * Wait for the roster before reading it.
-       *
-       * evaluateAll does not auto-wait: it resolves with whatever matches at
-       * that instant, and the page.reload() below puts this back to an empty
-       * island for about a second. Measured rather than guessed - sampling
-       * straight after a reload returns [], and 1.5s later returns all nine
-       * stations exactly where they were.
-       */
-      await expect(page.locator('.station').first()).toBeAttached()
-
-      // The island does not scroll the page, it pans - so
-      // scrollIntoViewIfNeeded can do nothing for a station that is off the
-      // edge. Ask which stations are actually in front of the viewport.
-      const reachable = (wanted: string | null) =>
-        page.locator('.station').evaluateAll(
-          (els, w) =>
-            els.findIndex((el) => {
-              const r = el.getBoundingClientRect()
-              const onScreen = r.x > 8 && r.right < window.innerWidth - 8
-              const name = el.querySelector('.marker__label strong')?.textContent?.trim()
-              const notHub = el.querySelector('.marker[data-primary="true"]') === null
-              return onScreen && notHub && (!w || name === w)
-            }),
-          wanted,
-        )
-
-      /*
-       * Pan to one if none is in front of us.
-       *
-       * A phone shows about a fifth of the island at a time, so which agent
-       * you can reach is a function of where the island happens to be sitting
-       * - and at the middle, which is where it starts, the answer can be none
-       * of them. Sweeping to it is what a person does, so it is what the test
-       * does. Same walk as the reachability test in 03-mobile.
-       */
-      let index = await reachable(want ?? null)
-      if (index < 0) {
-        const step = Math.round((page.viewportSize()?.width ?? 1440) / 2)
-        await panIsland(page, -100_000)
-        for (let i = 0; i < 40; i++) {
-          index = await reachable(want ?? null)
-          if (index >= 0) break
-          const before = await panOffset(page)
-          await panIsland(page, step)
-          if ((await panOffset(page)) === before) break
-        }
-        if (index < 0) index = await reachable(want ?? null)
-      }
-      expect(index, 'a station is reachable on this screen').toBeGreaterThanOrEqual(0)
-
-      const station = page.locator('.station').nth(index)
-      const name = (await station.locator('.marker__label strong').innerText()).trim()
-      await station.locator('.marker').click()
-      await expect(page.locator('.agent-dock')).toBeVisible()
-      return name
-    }
-
-    const agent = await open()
+    const agent = await openAnyAgent(page)
     const note = `Always answer in British English. ${Date.now()}`
     await page.locator('.agent-dock textarea').fill(note)
     await page.locator('.agent-dock button', { hasText: /save/i }).click()
@@ -164,7 +98,7 @@ test.describe('agent instructions', () => {
     expect(JSON.stringify(await stored.json()), `${agent}'s note reached the API`).toContain(note)
 
     await page.reload()
-    const again = await open(agent)
+    const again = await openAnyAgent(page, agent)
     expect(again).toBe(agent)
     await expect(page.locator('.agent-dock textarea')).toHaveValue(note)
   })

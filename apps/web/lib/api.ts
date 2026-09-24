@@ -11,7 +11,10 @@ import type { BillingPlan, ProviderDefinition } from '@agents-world/shared'
  */
 export interface AgentInfo {
   key: string
+  /** What this workspace calls it. The built-in name until someone renames it. */
   name: string
+  /** The built-in name, always, so the panel can offer it back. */
+  defaultName: string
   role: string
   instructions: string
   zone: {
@@ -204,6 +207,18 @@ export const api = {
     request<{ saved: boolean }>(`/agents/${agentKey}/instructions`, {
       method: 'PUT',
       body: JSON.stringify({ instructions }),
+    }),
+
+  /**
+   * Rename an agent for this workspace.
+   *
+   * Sending an empty name is how you ask for the built-in one back, so the
+   * reply says what the name ended up being rather than echoing what was sent.
+   */
+  renameAgent: (agentKey: string, name: string) =>
+    request<{ name: string; isDefault: boolean }>(`/agents/${agentKey}/name`, {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
     }),
 
   usage: () => request<Usage>('/usage'),

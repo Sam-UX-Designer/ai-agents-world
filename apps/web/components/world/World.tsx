@@ -465,6 +465,7 @@ function Markers({
           <div
             key={agent.key}
             className="station"
+            data-agent={agent.key}
             data-side={side}
             style={{ left, top }}
           >

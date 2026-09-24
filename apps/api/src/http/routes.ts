@@ -16,7 +16,16 @@ import {
   type ProviderDefinition,
   type ProviderStatus,
 } from '@agents-world/shared'
-import { getInstructions, listInstructions, MAX_INSTRUCTION_LENGTH, setInstructions } from '../agents/instructions.js'
+import {
+  getInstructions,
+  listAgentNames,
+  listInstructions,
+  MAX_AGENT_NAME_LENGTH,
+  MAX_INSTRUCTION_LENGTH,
+  normaliseAgentName,
+  setAgentName,
+  setInstructions,
+} from '../agents/overrides.js'
 import { AuthError, login, MIN_PASSWORD_LENGTH, register } from '../auth/password.js'
 import { issueSession, revokeSession, SESSION_COOKIE } from '../auth/sessions.js'
 import { completeSignIn, resolveUser, startSignIn } from '../auth/signin.js'
@@ -61,11 +70,36 @@ export async function registerRoutes(
     time: new Date().toISOString(),
   }))
 
+  /**
+   * The workspace whose settings apply to this request, or null.
+   *
+   * The roster is readable without signing in - the marketing page and the
+   * sign-in screen both draw the island - so a missing session is a normal
+   * answer here rather than an error. Signed in, it is how the caller's own
+   * names for its agents are found.
+   */
+  const workspaceOrNull = async (request: FastifyRequest): Promise<string | null> => {
+    try {
+      return (await authenticate(request)).workspaceId
+    } catch {
+      return null
+    }
+  }
+
   /** The agent roster. The island reads this to place and label its robots. */
-  app.get('/agents', async () =>
-    AGENT_REGISTRY.map((agent) => ({
+  app.get('/agents', async (request) => {
+    const workspaceId = await workspaceOrNull(request)
+    const names = workspaceId ? await listAgentNames(workspaceId) : {}
+
+    return AGENT_REGISTRY.map((agent) => ({
       key: agent.key,
-      name: agent.name,
+      // What this workspace calls it. Everything on screen reads this field,
+      // so a rename reaches the island, the panel and the active list at once.
+      name: names[agent.key] ?? agent.name,
+      // The built-in name, always. The panel needs it to offer the default
+      // back, and it is the only way to tell a renamed agent from one whose
+      // chosen name happens to match.
+      defaultName: agent.name,
       role: agent.role,
       zone: agent.zone,
       accent: agent.accent,
@@ -78,8 +112,8 @@ export async function registerRoutes(
         effect: t.effect,
       })),
       instructions: agent.instructions,
-    })),
-  )
+    }))
+  })
 
   /** The connector catalogue, for the Connect Tools screen. */
   app.get('/providers', async () =>
@@ -388,6 +422,7 @@ export async function registerRoutes(
     try {
       const ctx = await authenticate(request)
       const connections = await listConnections(ctx.workspaceId)
+      const agentNames = await listAgentNames(ctx.workspaceId)
 
       return INTEGRATIONS.map((integration) => {
         // A provider token is shared across the integrations that sit on it -
@@ -431,7 +466,12 @@ export async function registerRoutes(
             description: c.description,
           })),
           permissions: permissionsFor(integration),
-          agents: agentsWithAccess(integration),
+          // Renamed agents are renamed everywhere. Seeing "Finance Agent" here
+          // and "Muse" on the island would read as two different agents.
+          agents: agentsWithAccess(integration).map((a) => ({
+            ...a,
+            agentName: agentNames[a.agentKey] ?? a.agentName,
+          })),
         }
       })
     } catch (err) {
@@ -707,6 +747,49 @@ export async function registerRoutes(
 
       await setInstructions(ctx.workspaceId, key, body.data.instructions)
       return { saved: true }
+    } catch (err) {
+      return respondWithError(reply, err)
+    }
+  })
+
+  /**
+   * Rename an agent, for this workspace only.
+   *
+   * The roster itself is code, so this does not edit it: it records what one
+   * workspace calls one of its agents, and the roster is read through that.
+   * Another customer's Finance Agent is unaffected, and the agent's key - what
+   * events, tasks and history are written against - never moves.
+   *
+   * An empty name is not a failure. It means "use the built-in name again",
+   * which is the only way back once someone has renamed something.
+   */
+  app.put('/agents/:key/name', async (request, reply) => {
+    try {
+      const ctx = await authenticate(request)
+      const { key } = request.params as { key: string }
+
+      const agent = AGENT_REGISTRY.find((a) => a.key === key)
+      if (!agent) {
+        return reply.status(404).send({ error: 'Unknown agent' })
+      }
+
+      const body = z.object({ name: z.string() }).safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send({ error: 'A name is required.' })
+      }
+
+      // Measured after tidying, not before: a name padded out with spaces is
+      // not 40 characters long, and rejecting it would be rejecting something
+      // the user cannot see.
+      const tidied = normaliseAgentName(body.data.name)
+      if (tidied && tidied.length > MAX_AGENT_NAME_LENGTH) {
+        return reply.status(400).send({
+          error: `That name is too long. Keep it to ${MAX_AGENT_NAME_LENGTH} characters or fewer.`,
+        })
+      }
+
+      const saved = await setAgentName(ctx.workspaceId, key, body.data.name)
+      return { name: saved ?? agent.name, isDefault: saved === null }
     } catch (err) {
       return respondWithError(reply, err)
     }

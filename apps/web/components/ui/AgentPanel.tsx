@@ -37,7 +37,21 @@ const STATE_TONE: Record<AgentState, string> = {
   error: 'var(--color-danger)',
 }
 
-export function AgentPanel({ agents }: { agents: readonly AgentInfo[] }) {
+export function AgentPanel({
+  agents,
+  onRenamed,
+}: {
+  agents: readonly AgentInfo[]
+  /**
+   * Told when a rename lands, so whoever owns the roster can update it.
+   *
+   * The panel does not refetch: the island, the active list and this header
+   * all read the same array, and refetching would leave the name stale on
+   * screen for as long as the round trip took. Optional, because the panel is
+   * also rendered where nothing needs to know.
+   */
+  onRenamed?: (agentKey: string, name: string) => void
+}) {
   const selected = useWorld((s) => s.selectedAgent)
   const selectAgent = useWorld((s) => s.selectAgent)
   const agentStates = useWorld((s) => s.agents)
@@ -77,7 +91,7 @@ export function AgentPanel({ agents }: { agents: readonly AgentInfo[] }) {
           }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>{definition.name}</h2>
+          <AgentName agent={definition} onRenamed={onRenamed} />
           <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--color-text-dim)' }}>
             {definition.role}
           </p>
@@ -364,6 +378,146 @@ function CustomInstructions({ agentKey, agentName }: { agentKey: string; agentNa
       </div>
 
       {message && <p role="alert" className="instr__error">{message}</p>}
+    </div>
+  )
+}
+
+/**
+ * The agent's name, which the user can change.
+ *
+ * The roster is a set of departments, and a department is not what people
+ * actually call the thing doing their work. Someone whose Finance Agent only
+ * ever reconciles Stripe payouts will call it that, and a product that insists
+ * on "Finance Agent" is asking them to translate every time they look at it.
+ *
+ * What a rename does NOT do is move the agent: the key stays, so every task,
+ * event and history row already written still points at the same worker, and
+ * the built-in role - what this agent is actually good at - is untouched. It
+ * changes what this workspace calls it, and nothing else.
+ *
+ * Read mode is a button rather than an input that looks like text. An input
+ * sitting there permanently invites a stray tap on a phone to start an edit
+ * nobody asked for, and gives no hint that the name is changeable at all.
+ */
+function AgentName({
+  agent,
+  onRenamed,
+}: {
+  agent: AgentInfo
+  onRenamed?: (agentKey: string, name: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(agent.name)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+
+  // Selecting another agent while the editor is open must not carry the last
+  // one's draft across - the field would open holding a different agent's name.
+  useEffect(() => {
+    setEditing(false)
+    setDraft(agent.name)
+    setError(null)
+  }, [agent.key, agent.name])
+
+  useEffect(() => {
+    if (editing) input.current?.select()
+  }, [editing])
+
+  const renamed = agent.name !== agent.defaultName
+
+  const commit = useCallback(
+    async (value: string) => {
+      setSaving(true)
+      setError(null)
+      try {
+        const { name } = await api.renameAgent(agent.key, value)
+        onRenamed?.(agent.key, name)
+        setDraft(name)
+        setEditing(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not save that name')
+      } finally {
+        setSaving(false)
+      }
+    },
+    [agent.key, onRenamed],
+  )
+
+  if (!editing) {
+    return (
+      <button
+        className="rename__name"
+        onClick={() => { setDraft(agent.name); setEditing(true) }}
+        aria-label={`Rename ${agent.name}`}
+        title="Rename"
+      >
+        <span>{agent.name}</span>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+          <path
+            d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    )
+  }
+
+  return (
+    <div className="rename">
+      <label className="rename__label" htmlFor={`rename-${agent.key}`}>
+        Call this agent
+      </label>
+      <input
+        id={`rename-${agent.key}`}
+        ref={input}
+        className="rename__input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        // Matches MAX_AGENT_NAME_LENGTH on the server. The server is still the
+        // one that decides; this only stops the field accepting what it would
+        // then have to reject.
+        maxLength={32}
+        placeholder={agent.defaultName}
+        disabled={saving}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); void commit(draft) }
+          if (e.key === 'Escape') { setEditing(false); setDraft(agent.name); setError(null) }
+        }}
+      />
+
+      <div className="rename__row">
+        <button
+          className="btn btn--primary rename__btn rename__save"
+          onClick={() => void commit(draft)}
+          disabled={saving || draft.trim() === agent.name}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          className="btn btn--ghost rename__btn rename__cancel"
+          onClick={() => { setEditing(false); setDraft(agent.name); setError(null) }}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+        {/* Only offered once there is something to undo. On an agent still
+            using its built-in name it would do nothing, and a button that does
+            nothing is worse than no button. */}
+        {renamed && (
+          <button
+            className="rename__reset"
+            onClick={() => void commit('')}
+            disabled={saving}
+          >
+            Use {agent.defaultName}
+          </button>
+        )}
+      </div>
+
+      {error && <p role="alert" className="instr__error">{error}</p>}
     </div>
   )
 }
