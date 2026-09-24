@@ -3791,3 +3791,404 @@ body { min-height: 100%; }
   white-space: nowrap;
 }
 .answer__plans:hover { background: rgb(62 155 255 / 0.28); }
+
+/* ===========================================================================
+   Landing
+   ---------------------------------------------------------------------------
+   The page someone reaches from the main site. It is the only screen in this
+   product that is not the product, so it is allowed its own rhythm - long
+   sections, one idea each, and the island doing most of the talking.
+
+   Dark throughout, like everything else. One accent, the same blue the world
+   is lit with. One radius scale: 18px on panels, full pill on buttons.
+   =========================================================================== */
+
+.lp {
+  --lp-gutter: clamp(20px, 6vw, 96px);
+  --lp-max: 1180px;
+  --lp-r: 18px;
+  position: relative;
+  z-index: 1;
+  background: var(--color-ink-950);
+}
+
+/* Sections breathe. This is the single biggest difference between a page that
+   reads as considered and one that reads as filled in. */
+.lp > section {
+  padding: clamp(88px, 15vh, 180px) var(--lp-gutter);
+}
+
+.lp h1,
+.lp h2,
+.lp h3 { margin: 0; letter-spacing: -0.025em; text-wrap: balance; }
+.lp p { margin: 0; color: var(--color-text-dim); text-wrap: pretty; }
+
+/* --- the bar across the top ------------------------------------------------
+   One line, 64px, and it stays out of the way. It scrolls off rather than
+   sticking: on a page whose hero is a photograph, a persistent bar is a
+   window frame over the view. */
+.lp__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 64px;
+  padding: 0 var(--lp-gutter);
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+}
+
+.lp__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.lp__navlinks { display: flex; align-items: center; gap: clamp(10px, 2vw, 22px); }
+.lp__navlinks > a:first-child {
+  color: var(--color-text-dim);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.lp__navlinks > a:first-child:hover { color: var(--color-text); }
+
+/* --- buttons ---------------------------------------------------------------
+   Solid blue with near-white text clears AA comfortably; the quiet one gets a
+   stroke so it never floats unreadably over the artwork. */
+.lp__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 13px 26px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: linear-gradient(140deg, var(--color-accent), #2472D8);
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 620;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgb(62 155 255 / 0.28);
+  transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+.lp__btn:hover { filter: brightness(1.07); box-shadow: 0 14px 38px rgb(62 155 255 / 0.36); }
+.lp__btn:active { transform: translateY(1px); }
+
+.lp__btn--small { padding: 9px 18px; font-size: 14px; box-shadow: none; }
+
+.lp__btn--quiet {
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.22);
+  color: var(--color-text);
+  box-shadow: none;
+}
+.lp__btn--quiet:hover { background: rgb(255 255 255 / 0.12); filter: none; }
+
+.lp__link {
+  display: inline-block;
+  margin-top: 22px;
+  color: var(--color-accent-soft);
+  font-size: 15px;
+  font-weight: 560;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(127 192 255 / 0.4);
+  padding-bottom: 2px;
+}
+.lp__link:hover { border-bottom-color: var(--color-accent-soft); }
+
+/* --- hero ------------------------------------------------------------------
+   dvh, not vh: on iOS the address bar changes vh mid-scroll and the hero
+   jumps. Capped so the first idea below it is visible on a laptop. */
+.lp__hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(100dvh, 860px);
+  padding: 0 var(--lp-gutter) clamp(64px, 11vh, 118px);
+  overflow: hidden;
+}
+
+.lp__heroart { position: absolute; inset: 0; z-index: 0; }
+.lp__heroimg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; display: block; }
+
+/* The scrim is bottom-weighted rather than flat, so the middle of the island
+   keeps its brightness and the headline still clears AAA over it. */
+.lp__heroart::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, var(--color-ink-950) 2%, rgb(4 7 13 / 0.72) 28%, rgb(4 7 13 / 0.12) 58%, rgb(4 7 13 / 0.45) 100%);
+}
+
+.lp__herotext { position: relative; z-index: 1; width: 100%; max-width: var(--lp-max); margin: 0 auto; }
+
+.lp__herotext h1 {
+  /* The break is written into the markup, so the browser must not add its
+     own. `balance` was evening the two lines out by splitting the second one,
+     which put the headline on three lines at phone width. */
+  text-wrap: initial;
+  font-size: clamp(40px, 7.2vw, 82px);
+  line-height: 1.04;
+  font-weight: 680;
+  color: #FFFFFF;
+  text-shadow: 0 2px 30px rgb(4 7 13 / 0.6);
+}
+
+.lp__herotext p {
+  max-width: 34ch;
+  margin-top: 22px;
+  font-size: clamp(16px, 1.9vw, 20px);
+  line-height: 1.5;
+  color: rgb(236 244 255 / 0.88);
+  text-shadow: 0 1px 16px rgb(4 7 13 / 0.7);
+}
+
+.lp__cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+
+/* --- a statement on its own ------------------------------------------------ */
+.lp__say { text-align: center; }
+.lp__say > div { max-width: 760px; margin: 0 auto; }
+.lp__say h2 {
+  font-size: clamp(30px, 4.6vw, 54px);
+  line-height: 1.1;
+  font-weight: 660;
+}
+.lp__say p {
+  max-width: 58ch;
+  margin: 26px auto 0;
+  font-size: clamp(16px, 1.7vw, 19px);
+  line-height: 1.62;
+}
+
+/* --- text beside a picture ------------------------------------------------- */
+.lp__split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(36px, 5vw, 72px);
+  align-items: center;
+  max-width: var(--lp-max);
+  margin-inline: auto;
+}
+@media (min-width: 900px) {
+  .lp__split { grid-template-columns: 1fr 1.05fr; }
+}
+
+.lp__splittext h2 {
+  font-size: clamp(27px, 3.6vw, 42px);
+  line-height: 1.14;
+  font-weight: 640;
+  max-width: 18ch;
+}
+.lp__splittext p {
+  margin-top: 20px;
+  max-width: 46ch;
+  font-size: 17px;
+  line-height: 1.62;
+}
+
+.lp__frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-r);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+  aspect-ratio: 4 / 3;
+}
+/* Each crop looks at a different part of the same render, so the page shows
+   several places rather than the same photograph three times. Sized and
+   positioned from the component - see Crop. */
+.lp__crop {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+}
+
+/* --- the asymmetric grid --------------------------------------------------- */
+.lp__bento {
+  max-width: var(--lp-max);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 900px) {
+  .lp__bento { grid-template-columns: 1fr 1fr; }
+  .lp__cell--wide { grid-column: 1 / -1; }
+}
+
+.lp__bentohead { grid-column: 1 / -1; margin-bottom: clamp(10px, 2vw, 26px); }
+.lp__bentohead h2 {
+  font-size: clamp(27px, 3.6vw, 44px);
+  line-height: 1.12;
+  font-weight: 650;
+  max-width: 16ch;
+}
+
+.lp__cell {
+  border-radius: var(--lp-r);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  padding: clamp(24px, 3vw, 34px);
+  background: linear-gradient(168deg, rgb(18 34 56 / 0.5), rgb(7 14 26 / 0.7));
+}
+.lp__cell h3 { font-size: 19px; font-weight: 620; }
+.lp__cell p { margin-top: 10px; font-size: 15.5px; line-height: 1.6; max-width: 44ch; }
+
+/* The wide cell carries a real picture, so the grid is not five text boxes. */
+.lp__cell--wide {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(20px, 3vw, 38px);
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+}
+@media (min-width: 760px) {
+  .lp__cell--wide { grid-template-columns: 1.1fr 1fr; }
+}
+.lp__cellart { position: relative; aspect-ratio: 16 / 10; overflow: hidden; }
+.lp__celltext { padding: clamp(24px, 3vw, 34px); padding-top: 0; }
+@media (min-width: 760px) {
+  .lp__celltext { padding: clamp(24px, 3vw, 40px); padding-left: 0; }
+}
+
+.lp__cell--tint {
+  background:
+    radial-gradient(120% 140% at 12% 0%, rgb(62 155 255 / 0.14), transparent 62%),
+    linear-gradient(168deg, rgb(18 34 56 / 0.5), rgb(7 14 26 / 0.7));
+}
+
+/* --- the offset editorial block -------------------------------------------- */
+.lp__editorial { max-width: var(--lp-max); margin-inline: auto; }
+.lp__editorial > div { max-width: 900px; }
+.lp__editorial blockquote {
+  margin: 0;
+  font-size: clamp(26px, 3.9vw, 46px);
+  line-height: 1.16;
+  font-weight: 620;
+  letter-spacing: -0.025em;
+  color: var(--color-text);
+  max-width: 20ch;
+}
+.lp__editorial p {
+  margin-top: 30px;
+  max-width: 52ch;
+  font-size: 17px;
+  line-height: 1.64;
+}
+
+/* --- the wide band with the island ----------------------------------------- */
+.lp__band { max-width: var(--lp-max); margin-inline: auto; }
+.lp__bandart {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-r);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow: 0 40px 100px rgb(0 0 0 / 0.55);
+  aspect-ratio: 16 / 9;
+}
+.lp__bandimg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
+
+.lp__bandtext { margin-top: clamp(28px, 4vw, 46px); }
+
+/* The heading sits above its text rather than beside it. Beside it, a big
+   left headline with a small paragraph floating in the right column, is the
+   layout every generated page reaches for, and it reads as two fragments. */
+.lp__bandcols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+@media (min-width: 900px) {
+  .lp__bandcols { grid-template-columns: 1fr 1fr; column-gap: clamp(40px, 6vw, 80px); }
+}
+.lp__bandtext h2 {
+  font-size: clamp(27px, 3.6vw, 42px);
+  line-height: 1.14;
+  font-weight: 640;
+  max-width: 14ch;
+}
+.lp__bandtext p { font-size: 17px; line-height: 1.62; max-width: 46ch; }
+.lp__note { color: rgb(169 191 218 / 0.78); font-size: 15.5px; }
+
+/* --- plans teaser ----------------------------------------------------------- */
+.lp__plans { text-align: center; }
+.lp__plans > div { max-width: 640px; margin-inline: auto; }
+.lp__plans h2 { font-size: clamp(28px, 4vw, 46px); line-height: 1.12; font-weight: 650; }
+.lp__planline { margin-top: 20px; font-size: 17px; line-height: 1.62; }
+
+/* --- the last word ---------------------------------------------------------- */
+.lp__start {
+  text-align: center;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  background: radial-gradient(90% 120% at 50% 0%, rgb(62 155 255 / 0.1), transparent 64%);
+}
+.lp__start > div { display: grid; justify-items: center; gap: 22px; }
+.lp__start h2 { font-size: clamp(28px, 4.4vw, 50px); line-height: 1.1; font-weight: 660; }
+
+.lp__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 26px var(--lp-gutter) 34px;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  color: var(--color-text-dim);
+  font-size: 14px;
+}
+.lp__foot div { display: flex; gap: 20px; }
+.lp__foot a { color: var(--color-text-dim); text-decoration: none; }
+.lp__foot a:hover { color: var(--color-text); }
+
+/* --- arrival ----------------------------------------------------------------
+   A short rise and fade, once, when the section is reached. Transform and
+   opacity only, so it composites on the GPU. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(.16, 1, .3, 1),
+              transform 620ms cubic-bezier(.16, 1, .3, 1);
+}
+.reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .lp__btn { transition: none; }
+}
+
+/* --- the landing page on a phone -------------------------------------------
+   Two things break at this width and both are the same mistake: type that was
+   sized for a wide screen. The wordmark pushed the nav onto two lines, and the
+   headline ran to three. */
+@media (max-width: 560px) {
+  /* The mark alone. It is the same logo on the same blue, and the page title
+     is the next thing you read anyway. */
+  .lp__brand span { display: none; }
+
+  /*
+   * Sized so the second line always fits on one line.
+   *
+   * Measured rather than guessed: "Watch a team work." needs 11.3px of width
+   * per pixel of font size, and the box is the viewport less about 49px of
+   * gutter. 7.4vw keeps it inside that from a 320px phone upwards, and the
+   * 34px cap stops it growing past what the rest of the hero can carry.
+   */
+  .lp__herotext h1 { font-size: min(34px, 7.4vw); }
+  .lp__herotext p { font-size: 16px; max-width: none; }
+
+  /* Full width, stacked, so neither button is a thumb-width target next to a
+     gap it could miss. */
+  .lp__cta { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .lp__cta .lp__btn { width: 100%; }
+}
