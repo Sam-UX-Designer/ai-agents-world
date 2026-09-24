@@ -133,69 +133,62 @@
 }
 .pt__btn--quiet:hover { background: color-mix(in srgb, var(--pt-text) 7%, transparent); filter: none; }
 
-/* --- opening ------------------------------------------------------------------ */
-.pt__open { max-width: var(--pt-max); margin-inline: auto; padding-top: clamp(56px, 10vh, 110px); }
-.pt__kicker {
-  color: var(--pt-accent);
-  font-size: 13px; font-weight: 650; letter-spacing: 0.02em;
-  margin-bottom: 18px;
+/* --- hero ----------------------------------------------------------------------
+   Five seconds to say what is wrong, who it is for and what to press. The
+   text is left, the running app is beside it, and there is one button. */
+/*
+ * Two classes, deliberately.
+ *
+ * `.pt > section` is one class plus a type, which outranks a single class -
+ * so the padding-top written here was being ignored and the hero began a
+ * section's worth of space below the bar.
+ */
+.pt .pt__hero {
+  max-width: var(--pt-max);
+  margin-inline: auto;
+  padding-top: clamp(26px, 5vh, 62px);
 }
-.pt__open h1 {
-  font-size: clamp(36px, 6.4vw, 74px);
-  line-height: 1.06;
+.pt__herobody {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 5vw, 56px);
+  align-items: center;
+  margin-top: clamp(26px, 4vw, 44px);
+}
+@media (min-width: 980px) { .pt__herobody { grid-template-columns: 0.9fr 1.1fr; } }
+
+.pt__hero h1 {
+  /*
+   * Sized to the column it sits in, not to the page.
+   *
+   * At 56px in a 540px column this broke into six lines - the headline was
+   * scaled for a full-width hero and then put in half of one.
+   */
+  font-size: clamp(28px, 4.4vw, 60px);
+  line-height: 1.1;
   font-weight: 680;
+  /* The break is in the markup, at the full stop. `balance` would move it. */
   text-wrap: initial;
 }
-.pt__lede { max-width: 56ch; margin-top: 26px; font-size: clamp(17px, 2vw, 21px); }
+.pt__lede { margin-top: 22px; max-width: 46ch; font-size: clamp(16.5px, 1.7vw, 19px); }
+/* Who it is for. A page that never says this fails the five second test
+   however good the headline is. */
+.pt__for {
+  margin-top: 14px;
+  font-size: 15px;
+  color: var(--pt-dim);
+  opacity: 0.85;
+}
 
-/* --- why ----------------------------------------------------------------------
-   Text with one pulled-out line beside it, not a headline with a floating
-   paragraph: the aside is a conclusion, so it reads last on a phone too. */
-.pt__why {
-  max-width: var(--pt-max);
-  margin-inline: auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(28px, 4vw, 64px);
-}
-@media (min-width: 900px) { .pt__why { grid-template-columns: 1.25fr 1fr; } }
-.pt__whytext h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
-.pt__whytext p { margin-top: 18px; max-width: 52ch; font-size: 17px; }
-.pt__whyaside {
-  align-self: end;
-  padding: 24px 26px;
-  border-left: 2px solid var(--pt-accent);
-  background: var(--pt-bg-2);
-  border-radius: 0 var(--pt-r) var(--pt-r) 0;
-}
-.pt__whyaside p { color: var(--pt-text); font-size: 17.5px; font-weight: 500; }
+.pt__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 30px; }
+.pt__btn--big { padding: 15px 30px; font-size: 16px; }
+/* The reassurance sits with the button, not three sections below it. */
+.pt__reassure { color: var(--pt-dim); font-size: 14.5px; }
 
-/* --- a step in the story -------------------------------------------------------
-   The screen is the evidence, so it gets the larger half. */
-.pt__step {
-  max-width: var(--pt-max);
-  margin-inline: auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(28px, 4vw, 60px);
-  align-items: center;
-}
-@media (min-width: 940px) {
-  /* The screen takes twice the text. It is a detailed 3D world, and at half
-     the column it was a thumbnail of something rather than a look at it. */
-  .pt__step { grid-template-columns: 0.72fr 1.28fr; }
-}
-.pt__stepn {
-  color: var(--pt-accent);
-  font-size: 13.5px; font-weight: 640;
-  margin-bottom: 14px;
-}
-.pt__steptext h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.2; font-weight: 640; }
-.pt__steptext p { margin-top: 16px; max-width: 44ch; font-size: 16.5px; }
-
-.pt__stepshot img,
-.pt__wideshot img,
-.pt__reachshots img {
+.pt__heroshot img,
+.pt__howshot img,
+.pt__moment img,
+.pt__trustshots img {
   display: block;
   width: 100%;
   height: auto;
@@ -204,49 +197,132 @@
   box-shadow: var(--pt-shadow);
 }
 
-/* --- the wide beat --------------------------------------------------------------
-   Text above, screen at full width below. */
-.pt__wide { max-width: var(--pt-max); margin-inline: auto; }
-.pt__widetext { max-width: 44ch; }
-.pt__widetext h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.2; font-weight: 640; }
-.pt__widetext p { margin-top: 16px; font-size: 16.5px; }
-.pt__wideshot { margin-top: clamp(28px, 4vw, 48px); }
-
-/* --- honesty -------------------------------------------------------------------
-   Its own band, because it is the claim everything else rests on. */
-.pt__honest { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
-.pt__honest > div { max-width: var(--pt-max); margin-inline: auto; }
-.pt__honest h2 {
+/* --- the shift ------------------------------------------------------------------
+   One statement, wide measure, nothing else on the screen. */
+.pt__shift { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
+.pt__shift > div { max-width: 760px; margin-inline: auto; }
+.pt__shift h2 {
   font-size: clamp(26px, 3.6vw, 42px);
+  line-height: 1.14;
+  font-weight: 650;
+}
+.pt__shift p { margin-top: 22px; font-size: 17.5px; }
+
+/* --- what changes ---------------------------------------------------------------
+   Three outcomes in a row of plain columns, divided by a hairline rather than
+   boxed into cards. Cards here would be three identical tiles, which is the
+   most generic shape a page like this can take. */
+.pt__gains { max-width: var(--pt-max); margin-inline: auto; }
+.pt__gainshead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
+.pt__gainslist {
+  list-style: none;
+  margin: clamp(26px, 4vw, 40px) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.pt__gainslist > div { border-top: 1px solid var(--pt-line); }
+.pt__gainslist li { padding: 26px 0; }
+@media (min-width: 880px) {
+  .pt__gainslist { grid-template-columns: repeat(3, 1fr); column-gap: clamp(28px, 4vw, 56px); }
+  .pt__gainslist li { padding: 24px 0 0; }
+}
+.pt__gainslist h3 { margin: 0; font-size: 18px; font-weight: 640; letter-spacing: -0.015em; }
+.pt__gainslist p { margin-top: 10px; font-size: 15.5px; }
+
+/* --- how it works ---------------------------------------------------------------- */
+.pt__how { max-width: var(--pt-max); margin-inline: auto; }
+.pt__howhead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
+.pt__how h3 { margin: 0; font-size: clamp(20px, 2.3vw, 26px); font-weight: 640; line-height: 1.22; }
+.pt__how p { margin-top: 14px; font-size: 16.5px; max-width: 48ch; }
+
+.pt__howrow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(22px, 3vw, 44px);
+  align-items: center;
+  margin-top: clamp(28px, 4vw, 46px);
+}
+@media (min-width: 880px) { .pt__howrow { grid-template-columns: 0.8fr 1.2fr; } }
+
+/* The one moment the page raises its voice. */
+.pt__moment { margin-top: clamp(52px, 8vw, 96px); }
+.pt__momenttext { max-width: 52ch; margin-bottom: clamp(24px, 3vw, 38px); }
+.pt__momenttext h3 { font-size: clamp(22px, 2.8vw, 32px); }
+
+.pt__howtail { margin-top: clamp(52px, 8vw, 96px); max-width: 52ch; }
+
+/* --- trust ----------------------------------------------------------------------
+   Where customer logos would go on a page that had customers. */
+.pt__trust { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
+.pt__trust > div { max-width: var(--pt-max); margin-inline: auto; }
+.pt__trust h2 {
+  font-size: clamp(26px, 3.4vw, 40px);
   line-height: 1.14; font-weight: 650; max-width: 18ch;
 }
-.pt__honestgrid {
+.pt__trustgrid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 26px; }
+@media (min-width: 860px) { .pt__trustgrid { grid-template-columns: 1fr 1fr; column-gap: clamp(32px, 5vw, 70px); } }
+.pt__trustgrid p { font-size: 16.5px; max-width: 46ch; }
+.pt__trustshots {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
-  margin-top: 28px;
+  gap: 16px;
+  margin-top: clamp(30px, 4vw, 48px);
 }
-@media (min-width: 860px) { .pt__honestgrid { grid-template-columns: 1fr 1fr; column-gap: clamp(36px, 5vw, 72px); } }
-.pt__honestgrid p { font-size: 16.5px; max-width: 46ch; }
+@media (min-width: 860px) { .pt__trustshots { grid-template-columns: 1fr 1fr; } }
 
-/* --- reach ---------------------------------------------------------------------- */
-.pt__reach { max-width: var(--pt-max); margin-inline: auto; }
-.pt__reachhead h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
-.pt__reachhead p { margin-top: 18px; max-width: 58ch; font-size: 17px; }
-.pt__reachshots {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  margin-top: clamp(28px, 4vw, 48px);
+/* --- cost ------------------------------------------------------------------------ */
+.pt__cost { max-width: var(--pt-max); margin-inline: auto; }
+.pt__cost h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
+.pt__cost p { margin-top: 18px; max-width: 52ch; font-size: 17px; }
+.pt__link {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--pt-accent);
+  font-size: 15.5px; font-weight: 580; text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--pt-accent) 45%, transparent);
+  padding-bottom: 2px;
 }
-@media (min-width: 860px) { .pt__reachshots { grid-template-columns: 1fr 1fr; } }
+.pt__link:hover { border-bottom-color: var(--pt-accent); }
 
-/* --- try ------------------------------------------------------------------------ */
-.pt__try { text-align: center; border-top: 1px solid var(--pt-line); }
-.pt__try > div { max-width: 620px; margin-inline: auto; }
-.pt__try h2 { font-size: clamp(27px, 4vw, 46px); line-height: 1.12; font-weight: 660; }
-.pt__try p { margin-top: 16px; font-size: 17px; }
-.pt__trycta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
+/* --- questions -------------------------------------------------------------------
+   Open and close rather than five paragraphs: someone with one objection
+   should not have to read the other four. */
+.pt__qs { max-width: 820px; margin-inline: auto; }
+.pt__qshead h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 640; }
+.pt__qslist { margin-top: clamp(20px, 3vw, 32px); }
+.pt__qslist > div { border-top: 1px solid var(--pt-line); }
+.pt__qslist > div:last-child { border-bottom: 1px solid var(--pt-line); }
+.pt__qs details { padding: 4px 0; }
+.pt__qs summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 20px 34px 20px 0;
+  position: relative;
+  font-size: 17px; font-weight: 580;
+  color: var(--pt-text);
+}
+.pt__qs summary::-webkit-details-marker { display: none; }
+.pt__qs summary::after {
+  content: "";
+  position: absolute;
+  right: 6px; top: 50%;
+  width: 9px; height: 9px;
+  margin-top: -6px;
+  border-right: 1.8px solid var(--pt-dim);
+  border-bottom: 1.8px solid var(--pt-dim);
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+}
+.pt__qs details[open] summary::after { transform: rotate(-135deg); margin-top: -2px; }
+.pt__qs details p { padding: 0 40px 22px 0; font-size: 16px; max-width: 62ch; }
+
+/* --- close ------------------------------------------------------------------------ */
+.pt__close { text-align: center; border-top: 1px solid var(--pt-line); }
+.pt__close > div { display: grid; justify-items: center; gap: 20px; }
+.pt__close h2 { font-size: clamp(27px, 4vw, 46px); line-height: 1.12; font-weight: 660; }
+.pt__close .pt__reassure { margin-top: -8px; }
 
 .pt__foot {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -258,7 +334,7 @@
 .pt__foot a { color: var(--pt-dim); text-decoration: none; }
 .pt__foot a:hover { color: var(--pt-text); }
 
-/* --- arrival --------------------------------------------------------------------- */
+/* --- arrival ----------------------------------------------------------------------- */
 .reveal {
   opacity: 0;
   transform: translateY(16px);
@@ -269,12 +345,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
-  .pt__btn { transition: none; }
+  .pt__btn, .pt__qs summary::after { transition: none; }
 }
 
 @media (max-width: 560px) {
   .pt__brand span:last-child { display: none; }
-  .pt__open h1 { font-size: min(36px, 8.6vw); }
-  .pt__trycta { display: grid; grid-template-columns: 1fr; }
-  .pt__trycta .pt__btn { width: 100%; }
+  .pt__hero h1 { font-size: min(30px, 7.6vw); }
+  .pt__cta { display: grid; grid-template-columns: 1fr; justify-items: start; }
+  .pt__cta .pt__btn { width: 100%; }
 }

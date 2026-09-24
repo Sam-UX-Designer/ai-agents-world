@@ -4,27 +4,34 @@ import { Reveal } from './Reveal'
 import { ThemeToggle } from './Theme'
 
 /**
- * The page the portfolio card links to.
+ * The product page.
  *
- * It is about the product and nothing else. It answers, in this order, the
- * questions someone actually asks: what is this, what is it for, what was
- * wrong with how this is normally done, how does it work, what makes it
- * different, and how do I try it.
+ * Rebuilt from research rather than taste, after two attempts that were
+ * neither. What the research changed, concretely:
  *
- * It tells that as one story rather than as a feature list: a single goal,
- * from the sentence you type to the answer you get, illustrated with real
- * screens of the running product. Nothing here is a mockup and nothing is a
- * drawing of a screen that does not exist.
+ * - A visitor has about five seconds to answer three questions: what is this,
+ *   who is it for, what do I do next. The earlier drafts answered the first
+ *   and neither of the others.
+ * - The headline should be the clearest sentence a customer would use to
+ *   describe the PROBLEM, not a description of the product. "A workforce you
+ *   can give one sentence to" was the product describing itself.
+ * - One primary call to action beats two competing ones, with the reassurance
+ *   sitting next to it rather than three sections away.
+ * - The order is an argument: what is wrong, what you get, how it works, why
+ *   trust it, what it costs, what you are still wondering, act. Each section
+ *   answers the question the last one raises.
+ * - Restraint everywhere, with one deliberate moment of visual impact. The
+ *   earlier drafts had four pictures competing to be that moment.
  *
- * There are no numbers on this page. The product has not launched, so any
- * figure would be invented, and inventing figures is the exact thing the
- * product was built not to do.
+ * Every image is a screen of the running product. There are no invented
+ * numbers and no customer logos, because there are no customers yet, and
+ * borrowing credibility is the one thing this product is built not to do.
  */
 
 const SHOT = {
-  idle: '/product/01-idle.webp',
-  dispatch: '/product/02-dispatch.webp',
   working: '/product/03-working.webp',
+  dispatch: '/product/02-dispatch.webp',
+  ask: '/product/06-ask.webp',
   tools: '/product/04-tools.webp',
   history: '/product/05-history.webp',
 }
@@ -32,40 +39,21 @@ const SHOT = {
 export function ProductPage() {
   return (
     <main className="pt">
-      <Header />
-      <Opening />
-      <Why />
-      <Step
-        n="Type one sentence"
-        title="You say what you want, not who should do it."
-        body="No picking an assistant, no choosing a template, no filling in a form. One line, the way you would say it to a person who works for you."
-        shot={SHOT.idle}
-        alt="The island at rest, with every agent standing by and the command bar at the bottom of the screen."
-      />
-      <Step
-        n="It decides who is needed"
-        title="The goal is split, and sent to the agents whose job it is."
-        body="An Orchestrator reads the sentence, breaks it into tasks, and hands each one out. You watch it happen: a bolt leaves the hub for each agent that was chosen. Nobody else is woken."
-        shot={SHOT.dispatch}
-        alt="A bolt of light travelling from the central hub across the island to an agent's station."
-        wide
-      />
-      <Step
-        n="They work in parallel"
-        title="Tasks that do not depend on each other run at the same time."
-        body="Three questions take about as long as one. Each agent shows what it is doing in its own words, and the progress bar counts steps that actually finished."
-        shot={SHOT.working}
-        alt="Two agents marked as working, an active agents panel, and a task card counting completed steps."
-      />
-      <Honesty />
-      <Reach />
-      <Try />
+      <Bar />
+      <Hero />
+      <Shift />
+      <Gains />
+      <How />
+      <Trust />
+      <Cost />
+      <Questions />
+      <Close />
       <Foot />
     </main>
   )
 }
 
-function Header() {
+function Bar() {
   return (
     <header className="pt__bar">
       <span className="pt__brand">
@@ -74,181 +62,271 @@ function Header() {
       </span>
       <div className="pt__baractions">
         <ThemeToggle />
-        <Link href="/signin" className="pt__btn pt__btn--sm">
-          Open the app
-        </Link>
+        <Link href="/signin" className="pt__btn pt__btn--sm">Start free</Link>
       </div>
     </header>
   )
 }
 
-/** What it is, in the first breath. */
-function Opening() {
+/**
+ * Five seconds to say what is wrong, who it is for, and what to press.
+ *
+ * One button, with the thing that removes the risk of pressing it written
+ * directly underneath rather than buried on the pricing page.
+ */
+function Hero() {
   return (
-    <section className="pt__open">
-      <Reveal>
-        <p className="pt__kicker">AI Agents World</p>
+    <section className="pt__hero">
+      {/*
+        The headline takes the whole width, and the rest of the hero sits
+        under it in two columns.
+
+        It started beside the screenshot and broke into six lines: the
+        sentence needs about sixteen times the font size in width, which is
+        700px at the size a hero headline wants to be, and the column was 514.
+        A headline either gets the room its scale needs or it gets a smaller
+        scale. This gets the room.
+      */}
+      <Reveal className="pt__herohead">
         <h1>
-          A workforce you can
+          Your AI answers questions.
           <br />
-          give one sentence to.
+          It should be doing the work.
         </h1>
+      </Reveal>
+
+      <div className="pt__herobody">
+      <Reveal className="pt__herotext">
         <p className="pt__lede">
-          Most AI tools answer a question and hand the work back to you. This
-          one takes the work. You describe an outcome, and a team of specialist
-          agents goes and does it while you watch.
+          Describe what you want done. A team of specialist agents does it, and
+          shows you the work as it happens.
+        </p>
+        <p className="pt__for">For founders and small teams doing the job of six people.</p>
+        <div className="pt__cta">
+          <Link href="/signin" className="pt__btn pt__btn--big">Start free</Link>
+          <span className="pt__reassure">Five credits a day. No card.</span>
+        </div>
+      </Reveal>
+
+      <Reveal className="pt__heroshot" delay={0.1}>
+        <img
+          src={SHOT.working}
+          alt="The app mid-run: two agents marked as working, a panel listing them, and a card counting completed steps."
+          fetchPriority="high"
+          decoding="async"
+        />
+      </Reveal>
+      </div>
+    </section>
+  )
+}
+
+/** The value, as the difference between two things the reader already knows. */
+function Shift() {
+  return (
+    <section className="pt__shift">
+      <Reveal>
+        <h2>A chat window hands the work back. This one takes it.</h2>
+        <p>
+          You ask a question, you get a paragraph, and then you go and do the
+          job yourself. You are still the person carrying every result to the
+          next step. That is the part this replaces.
         </p>
       </Reveal>
     </section>
   )
 }
 
-/** The problem, and why it is worth a product. */
-function Why() {
+/** Three outcomes, written as what changes for you, not as what it has. */
+function Gains() {
+  const gains = [
+    {
+      h: 'You stop being the bottleneck',
+      p: 'Tasks that do not depend on each other run at the same time, so three questions take about as long as one.',
+    },
+    {
+      h: 'You can see who is doing what',
+      p: 'Every agent is somewhere on the island, and it moves while it is working. No wondering whether anything is happening.',
+    },
+    {
+      h: 'Nothing goes out without you',
+      p: 'Reading is theirs to do. Anything that sends, posts or schedules stops and waits for your yes.',
+    },
+  ]
+
   return (
-    <section className="pt__why">
-      <Reveal className="pt__whytext">
-        <h2>The work that needs six people gets done by one.</h2>
-        <p>
-          A founder, a solo designer, a small team. The job spreads across an
-          inbox, a calendar, a spreadsheet and four tabs, and the person doing
-          it is the only thing holding the pieces together.
-        </p>
-        <p>
-          A chat window does not fix that. It answers one question at a time
-          and leaves you to carry the result to the next thing. You are still
-          the integration layer.
-        </p>
+    <section className="pt__gains">
+      <Reveal className="pt__gainshead">
+        <h2>What changes</h2>
       </Reveal>
-      <Reveal className="pt__whyaside" delay={0.08}>
-        <p>
-          So the thing to build was not a better chat window. It was somewhere
-          the work could be handed over and then seen.
-        </p>
-      </Reveal>
+      <ul className="pt__gainslist">
+        {gains.map((g, i) => (
+          <Reveal key={g.h} delay={i * 0.06}>
+            <li>
+              <h3>{g.h}</h3>
+              <p>{g.p}</p>
+            </li>
+          </Reveal>
+        ))}
+      </ul>
     </section>
   )
 }
 
-/** One beat of the story: a claim, a sentence, and the screen it happened on. */
-function Step({
-  n,
-  title,
-  body,
-  shot,
-  alt,
-  wide = false,
-}: {
-  n: string
-  title: string
-  body: string
-  shot: string
-  alt: string
-  /**
-   * The middle beat runs the screen at full width with its text above it.
-   *
-   * Two reasons. It is the moment the product is actually about - a task
-   * being handed to an agent - and it needs the room to be legible. And three
-   * text-beside-picture rows in a row is a rhythm that puts people to sleep
-   * however good the pictures are.
-   */
-  wide?: boolean
-}) {
-  if (wide) {
-    return (
-      <section className="pt__wide">
-        <Reveal className="pt__widetext">
-          <p className="pt__stepn">{n}</p>
-          <h2>{title}</h2>
-          <p>{body}</p>
-        </Reveal>
-        <Reveal className="pt__wideshot" delay={0.08}>
-          <img src={shot} alt={alt} loading="lazy" decoding="async" />
-        </Reveal>
-      </section>
-    )
-  }
-
+/**
+ * How it works, and the one moment the page raises its voice.
+ *
+ * The dispatch runs the full width because a task being handed to an agent is
+ * the thing the product is; everything around it stays quiet so it lands.
+ */
+function How() {
   return (
-    <section className="pt__step">
-      <Reveal className="pt__steptext">
-        <p className="pt__stepn">{n}</p>
-        <h2>{title}</h2>
-        <p>{body}</p>
+    <section className="pt__how">
+      <Reveal className="pt__howhead">
+        <h2>How it works</h2>
       </Reveal>
-      <Reveal className="pt__stepshot" delay={0.08}>
-        {/* A real screen of the running product, not a drawing of one. */}
-        <img src={shot} alt={alt} loading="lazy" decoding="async" />
+
+      <div className="pt__howrow">
+        <Reveal className="pt__howtext">
+          <h3>Say it the way you would say it to a person</h3>
+          <p>
+            No choosing an assistant, no template, no form. One line, in your
+            own words.
+          </p>
+        </Reveal>
+        <Reveal className="pt__howshot" delay={0.08}>
+          <img src={SHOT.ask} alt="The command bar, with four suggested goals beneath it." loading="lazy" decoding="async" />
+        </Reveal>
+      </div>
+
+      <Reveal className="pt__moment">
+        <div className="pt__momenttext">
+          <h3>It works out who is needed, and sends the work to them</h3>
+          <p>
+            An Orchestrator reads your sentence, splits it into tasks, and
+            hands each one to the agent whose job it is. You watch the handover
+            happen. Nobody else is woken.
+          </p>
+        </div>
+        <img
+          src={SHOT.dispatch}
+          alt="A bolt of light travelling from the central hub across the island to the agent that was chosen."
+          loading="lazy"
+          decoding="async"
+        />
+      </Reveal>
+
+      <Reveal className="pt__howtail">
+        <h3>They report back as one answer</h3>
+        <p>
+          Findings from every agent, merged into one reply, with what each one
+          actually found kept in it. If something failed, the answer says so.
+        </p>
       </Reveal>
     </section>
   )
 }
 
 /**
- * The difference that is hard to see and hard to fake.
+ * The trust section.
  *
- * Every product in this category shows something moving while it waits. This
- * one is built so it cannot, and that is worth its own section because it is
- * the reason to trust anything else on the page.
+ * Where a page like this would normally put customer logos and a rating.
+ * There are no customers yet, so there is nothing true to put there, and the
+ * honest substitute is the promise that is hardest to fake.
  */
-function Honesty() {
+function Trust() {
   return (
-    <section className="pt__honest">
+    <section className="pt__trust">
       <Reveal>
         <h2>Nothing on the screen is pretending.</h2>
-        <div className="pt__honestgrid">
+        <div className="pt__trustgrid">
           <p>
-            A robot moves because a task is genuinely in flight. The bar moves
-            because a step genuinely finished. Before a plan exists there is
-            nothing to divide by, so it shows no percentage rather than a
-            comforting one.
+            An agent moves because a task is genuinely running. The bar moves
+            because a step genuinely finished. Before there is a plan there is
+            nothing to divide by, so it shows nothing rather than a comforting
+            number.
           </p>
           <p>
-            If an agent fails, the answer says so and names what is missing.
-            Nothing integration claims to be connected without a real account
-            behind it, and anything that sends, posts or schedules stops and
-            asks you first.
+            No integration says it is connected without a real account behind
+            it. No answer claims work that did not happen. If a third of your
+            goal failed, the reply names the third that failed.
           </p>
+        </div>
+        <div className="pt__trustshots">
+          <img src={SHOT.tools} alt="The tools screen, showing which accounts are actually connected." loading="lazy" decoding="async" />
+          <img src={SHOT.history} alt="The history screen, listing every past run and what it produced." loading="lazy" decoding="async" />
         </div>
       </Reveal>
     </section>
   )
 }
 
-/** What the agents can actually touch, and what is kept. */
-function Reach() {
+function Cost() {
   return (
-    <section className="pt__reach">
-      <Reveal className="pt__reachhead">
-        <h2>Real accounts, and a record of everything.</h2>
+    <section className="pt__cost">
+      <Reveal>
+        <h2>Free to start, and it stays useful when it is free.</h2>
         <p>
-          Agents work in your Gmail, your Calendar and your Slack, through your
-          own connected accounts. Every run is kept: what was asked, who did
-          what, what each one found, and what it cost.
+          Five credits a day, every day. One credit is one goal, however many
+          agents it takes to finish it. No card to begin.
         </p>
+        <Link href="/pricing" className="pt__link">See what each plan includes</Link>
       </Reveal>
-      <div className="pt__reachshots">
-        <Reveal>
-          <img src={SHOT.tools} alt="The tools screen, showing which integrations are connected." loading="lazy" decoding="async" />
-        </Reveal>
-        <Reveal delay={0.08}>
-          <img src={SHOT.history} alt="The history screen, listing past runs and their results." loading="lazy" decoding="async" />
-        </Reveal>
+    </section>
+  )
+}
+
+/** The objections, answered where they are actually raised. */
+function Questions() {
+  const qs = [
+    {
+      q: 'What is an agent, exactly?',
+      a: 'A worker with one job and a set of tools. The Finance one reads your numbers, the Operations one lives in your calendar and inbox. You never pick between them; you say what you want and the Orchestrator picks.',
+    },
+    {
+      q: 'Will it email people without asking me?',
+      a: 'No. Reading is its own to do. Anything that sends, posts, schedules or deletes stops and waits for you, and a no is final.',
+    },
+    {
+      q: 'What does one credit actually cover?',
+      a: 'One goal, start to finish, however many agents it takes. A goal that wakes four agents costs the same as one that wakes one.',
+    },
+    {
+      q: 'What happens when something fails?',
+      a: 'The answer says what failed and what is therefore missing, rather than quietly summarising the parts that worked. A run where nothing landed is refunded.',
+    },
+    {
+      q: 'What does it need access to?',
+      a: 'Gmail, Calendar and Slack, connected by you and revocable by you. Nothing appears as connected unless a real account is behind it.',
+    },
+  ]
+
+  return (
+    <section className="pt__qs">
+      <Reveal className="pt__qshead">
+        <h2>Still wondering</h2>
+      </Reveal>
+      <div className="pt__qslist">
+        {qs.map((item, i) => (
+          <Reveal key={item.q} delay={i * 0.04}>
+            <details>
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          </Reveal>
+        ))}
       </div>
     </section>
   )
 }
 
-function Try() {
+function Close() {
   return (
-    <section className="pt__try">
+    <section className="pt__close">
       <Reveal>
         <h2>Give it something to do.</h2>
-        <p>Five credits a day on the free plan. One credit is one goal, however many agents it takes.</p>
-        <div className="pt__trycta">
-          <Link href="/signin" className="pt__btn">Open the app</Link>
-          <Link href="/pricing" className="pt__btn pt__btn--quiet">See plans</Link>
-        </div>
+        <Link href="/signin" className="pt__btn pt__btn--big">Start free</Link>
+        <p className="pt__reassure">Five credits a day. No card.</p>
       </Reveal>
     </section>
   )
