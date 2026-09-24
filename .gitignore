@@ -20,3 +20,6 @@ npm-debug.log*
 # Playwright
 test-results/
 playwright-report/
+
+# Scratch capture scripts
+.*.mjs
