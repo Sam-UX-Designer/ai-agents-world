@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { forgetViewer } from '@/lib/viewer'
 import { Backdrop } from '@/components/world/Backdrop'
@@ -32,7 +32,6 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function SignInScreen() {
   const router = useRouter()
-  const params = useSearchParams()
 
   /*
    * Which door was knocked on.
@@ -41,7 +40,26 @@ export function SignInScreen() {
    * form, not on a sign-in form with a link to it. Anyone arriving without a
    * preference gets sign-in, which is what a returning person wants.
    */
-  const [mode, setMode] = useState<Mode>(params.get('mode') === 'register' ? 'register' : 'signin')
+  const [mode, setMode] = useState<Mode>('signin')
+
+  /*
+   * Read from the address bar in an effect, not with useSearchParams.
+   *
+   * That hook opts a page out of being prerendered unless it is wrapped in a
+   * Suspense boundary, and Next fails the build rather than doing it quietly:
+   * "useSearchParams() should be wrapped in a suspense boundary at page
+   * /signin". Wrapping it would have worked, at the cost of this whole screen
+   * becoming client-rendered - a blank ocean until hydration - which is a
+   * poor trade for choosing which tab opens.
+   *
+   * So the page stays static and this runs once on mount. The cost is a frame
+   * of the sign-in tab before the register one appears, and only for someone
+   * who arrived asking for register.
+   */
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('mode')
+    if (wanted === 'register') setMode('register')
+  }, [])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)

@@ -54,4 +54,12 @@ without terminal access.
 
 - `pnpm --filter @agents-world/api test`
 - `npx tsc --noEmit` in `apps/api` and `apps/web`
+- `pnpm --filter @agents-world/shared build && pnpm --filter @agents-world/web build`
 - For anything visual, run it and look at it in the browser.
+
+The production build is on that list because typechecking is not it. Two
+deployments failed on `useSearchParams() should be wrapped in a suspense
+boundary at page "/signin"` - a page that compiled, typechecked and worked in
+the dev server, and only broke when Next tried to prerender it. Dev mode never
+prerenders, so nothing short of the real build finds this. Run the same command
+Vercel runs.
