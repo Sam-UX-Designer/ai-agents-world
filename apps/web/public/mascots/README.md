@@ -1,7 +1,18 @@
-# mascots/ - agent characters
+# mascots/ - agent pictures
 
-One image per agent. The file is used twice: standing on the agent's station
-on the island, and as the small icon inside its card.
+**One image per agent, and this folder is the only place it goes.**
+
+There used to be a second folder, `agents/`, described as holding portraits for
+the panel and History. Nothing ever read it, so filling it changed nothing and
+having two folders for one picture was a trap. It is gone; this is the one.
+
+The file here is an agent's face everywhere it appears:
+
+- standing on its station on the island
+- the small icon inside its card
+- the picture in its detail panel
+- the row in the working-agents list
+- the dot beside a past run in History
 
 **Name each file after the agent's key**, exactly as listed below. That is how
 the app finds it — there is no registration step. Drop the file in, reload, and
@@ -25,8 +36,10 @@ design.png
 
 - **PNG with a transparent background.** The mascot stands on the island, so
   any background colour will show as a rectangle on the artwork.
-- **512px tall** is plenty. It renders at 54px on the island and 26px in a
-  card, so bigger than 512 is bytes nobody sees.
+- **512px is plenty**, and smaller is better. It renders at 54px on the island,
+  38px in the panel and 26px in a card, so anything past 512 is bytes nobody
+  sees. The renders in here now are 1254px and about 1.4 MB each, which is
+  roughly 11 MB the home screen downloads to draw nine thumbnails.
 - **Full body, feet at the bottom edge** of the canvas, with no padding
   underneath. The image is anchored by its feet so a taller character grows
   upward and still stands on its station rather than floating above it.

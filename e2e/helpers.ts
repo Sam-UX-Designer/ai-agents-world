@@ -210,3 +210,101 @@ export async function openAnyAgent(page: Page, want?: string): Promise<string> {
   await expect(page.locator('.agent-dock')).toBeVisible()
   return name
 }
+
+/**
+ * Open one named agent's panel, bringing the island to it first.
+ *
+ * `openAnyAgent` takes whichever agent is in front of you, which is right when
+ * the test does not care which. This is for when it does - checking every
+ * agent in turn, say. On a phone the island is several screens wide, so a
+ * station can be off the edge entirely, and `click()` then waits forever on an
+ * element that is attached, enabled and simply somewhere else.
+ */
+export async function openAgent(
+  page: Page,
+  key: string,
+  /**
+   * Switch straight from whatever panel is open to this one, without closing
+   * it first.
+   *
+   * This matters more than it looks. Closing unmounts the panel, so the next
+   * agent gets a brand-new picture element - which is precisely the path that
+   * hides a picture element wrongly reusing state between agents. A test that
+   * always closes cannot see that bug; it was written that way once and proved
+   * it by passing against the broken code.
+   */
+  { keepOpen = false }: { keepOpen?: boolean } = {},
+): Promise<void> {
+  const closeButton = page.locator('.agent-dock button', { hasText: /^close$/i })
+  if (!keepOpen && (await closeButton.count())) await closeButton.click()
+
+  const station = page.locator(`.station[data-agent="${key}"]`)
+  await expect(station).toBeAttached()
+
+  /**
+   * Is this station somewhere a finger could actually land on it?
+   *
+   * Measured on the card, not on the station anchor. The anchor is a
+   * zero-sized point and the card is offset from it - to the left or right
+   * depending on which edge of the island it sits near - so an anchor dead in
+   * the middle of the screen can still have its card half off the edge, which
+   * is a click Playwright waits out rather than performs.
+   */
+  const reachable = () =>
+    station.evaluate((el) => {
+      const card = el.querySelector('.marker')
+      if (!card) return false
+      const r = card.getBoundingClientRect()
+      if (r.width === 0) return false
+      const inside =
+        r.left > 4 && r.right < window.innerWidth - 4 &&
+        r.top > 4 && r.bottom < window.innerHeight - 4
+      if (!inside) return false
+      // An open panel swallows clicks on anything beneath it.
+      const dock = document.querySelector('.agent-dock')?.getBoundingClientRect()
+      if (!dock) return true
+      const overlaps =
+        r.left < dock.right + 4 && r.right > dock.left - 4 &&
+        r.top < dock.bottom + 4 && r.bottom > dock.top - 4
+      return !overlaps
+    })
+
+  /**
+   * Put this station in the middle of the screen.
+   *
+   * One move, not a search. The island is a scroll container and the station
+   * reports where it currently sits, so the offset that centres it is simple
+   * arithmetic. Panning half a screen at a time looking for it took most of a
+   * minute per agent on a phone and timed the test out.
+   */
+  const centre = async () => {
+    await page.evaluate((k) => {
+      const el = document.querySelector(`.station[data-agent="${k}"]`)
+      const world = document.querySelector('.world')
+      if (!el || !world) return
+      const card = el.querySelector('.marker') ?? el
+      const r = card.getBoundingClientRect()
+      world.scrollLeft += r.left + r.width / 2 - window.innerWidth / 2
+      world.scrollTop += r.top + r.height / 2 - window.innerHeight / 2
+    }, key)
+    // One frame for the scroll handler to reach React and move the stations.
+    await page.waitForTimeout(150)
+  }
+
+  if (!(await reachable())) {
+    await centre()
+    /*
+     * Centred and still covered: on a phone the panel is full width, so there
+     * is nowhere clear of it - and a person there has to close it to pick
+     * another agent too. Closing is the route the product offers at that size.
+     */
+    if (!(await reachable()) && (await closeButton.count())) {
+      await closeButton.click()
+      await centre()
+    }
+    expect(await reachable(), `could not bring ${key} into view`).toBe(true)
+  }
+
+  await station.locator('.marker').click()
+  await expect(page.locator('.agent-dock')).toBeVisible()
+}

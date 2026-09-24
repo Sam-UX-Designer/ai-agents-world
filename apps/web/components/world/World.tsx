@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentInfo, BillingState } from '@/lib/api'
+import { AgentAvatar, mascotSrc } from '@/components/ui/AgentAvatar'
 import { ApiError, api } from '@/lib/api'
 import { ISLAND_ART } from '@agents-world/shared'
 import { pointOn, useCoverRect, type CoverRect } from '@/lib/coverRect'
@@ -550,9 +551,14 @@ export function ActiveAgents({ agents }: { agents: readonly AgentInfo[] }) {
               data-selected={selected === agent.key}
               onClick={() => select(selected === agent.key ? null : agent.key)}
             >
-              <span className="agents__icon" style={{ ['--accent' as string]: agent.accent }}>
-                {agent.name.charAt(0)}
-              </span>
+              <AgentAvatar
+                agentKey={agent.key}
+                name={agent.name}
+                accent={agent.accent}
+                size={26}
+                radius={8}
+                className="agents__icon"
+              />
               <span className="agents__text">
                 <strong>{agent.name}</strong>
                 <em>{view?.activity}</em>
@@ -853,7 +859,10 @@ function Orb({ rect, running }: { rect: CoverRect; running: boolean }) {
  * like a robot would read as the final design and get left there.
  */
 function Mascot({ agentKey, state }: { agentKey: string; state: string }) {
-  const [missing, setMissing] = useState(false)
+  // Keyed by agent, not a bare boolean: these are reused across agents
+  // when a list re-renders, and a bare flag stuck on the first failure.
+  const [failed, setFailed] = useState<string | null>(null)
+  const missing = failed === agentKey
   const busy = ['planning', 'spawning', 'working'].includes(state)
 
   if (missing) {
@@ -864,10 +873,10 @@ function Mascot({ agentKey, state }: { agentKey: string; state: string }) {
     <img
       className="station__mascot"
       data-state={state}
-      src={`/mascots/${agentKey}.png`}
+      src={mascotSrc(agentKey)}
       alt=""
       aria-hidden="true"
-      onError={() => setMissing(true)}
+      onError={() => setFailed(agentKey)}
       style={busy ? undefined : { opacity: 0.9 }}
     />
   )
@@ -883,7 +892,10 @@ function MascotIcon({
   name: string
   accent: string
 }) {
-  const [missing, setMissing] = useState(false)
+  // Keyed by agent, not a bare boolean: these are reused across agents
+  // when a list re-renders, and a bare flag stuck on the first failure.
+  const [failed, setFailed] = useState<string | null>(null)
+  const missing = failed === agentKey
 
   if (missing) {
     return (
@@ -896,9 +908,9 @@ function MascotIcon({
   return (
     <img
       className="marker__icon marker__icon--img"
-      src={`/mascots/${agentKey}.png`}
+      src={mascotSrc(agentKey)}
       alt=""
-      onError={() => setMissing(true)}
+      onError={() => setFailed(agentKey)}
     />
   )
 }

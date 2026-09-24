@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentState } from '@agents-world/shared'
 import { api, type AgentInfo } from '@/lib/api'
+import { AgentAvatar } from './AgentAvatar'
 import { useWorld } from '@/lib/store'
 
 /**
@@ -82,13 +83,17 @@ export function AgentPanel({
       aria-label={`${definition.name} details`}
     >
       <header style={{ display: 'flex', alignItems: 'start', gap: 12, marginBottom: 16 }}>
-        <span
-          aria-hidden="true"
-          style={{
-            width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-            background: `color-mix(in srgb, ${definition.accent} 25%, transparent)`,
-            border: `1px solid ${definition.accent}`,
-          }}
+        {/*
+          The agent's own picture, not a coloured square. This was the square
+          for long enough that uploading the renders changed the island and
+          left this panel looking like the upload had failed.
+        */}
+        <AgentAvatar
+          agentKey={definition.key}
+          name={definition.name}
+          accent={definition.accent}
+          size={38}
+          radius={11}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <AgentName agent={definition} onRenamed={onRenamed} />

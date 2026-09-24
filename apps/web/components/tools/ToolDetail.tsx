@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { IntegrationInfo } from '@/lib/api'
+import { AgentAvatar } from '@/components/ui/AgentAvatar'
 import { ToolIcon } from './ToolCard'
 
 /**
@@ -227,7 +228,14 @@ function ConnectedAgents({ tool }: { tool: IntegrationInfo }) {
       <ul className="agentlist">
         {tool.agents.map((a) => (
           <li key={a.agentKey} className="agentlist__row">
-            <AgentAvatar agentKey={a.agentKey} accent={a.accent} name={a.agentName} />
+            <AgentAvatar
+              agentKey={a.agentKey}
+              accent={a.accent}
+              name={a.agentName}
+              size={34}
+              radius={17}
+              className="agentlist__avatar"
+            />
             <span className="agentlist__who">
               <strong>{a.agentName}</strong>
               <em>{LEVEL_LABEL[a.level]} · {a.grantedCount} of {a.totalCount} capabilities</em>
@@ -262,31 +270,6 @@ function StatusBadge({ tool }: { tool: IntegrationInfo }) {
 }
 
 /** Mascot, with the same lettermark fallback the island uses. */
-function AgentAvatar({ agentKey, accent, name }: { agentKey: string; accent: string; name: string }) {
-  const [missing, setMissing] = useState(false)
-
-  if (missing) {
-    return (
-      <span
-        className="agentlist__avatar agentlist__avatar--fallback"
-        style={{ background: `linear-gradient(150deg, ${accent}, rgb(8 18 34 / 0.9))` }}
-        aria-hidden="true"
-      >
-        {name.charAt(0)}
-      </span>
-    )
-  }
-
-  return (
-    <img
-      className="agentlist__avatar"
-      src={`/mascots/${agentKey}.png`}
-      alt=""
-      onError={() => setMissing(true)}
-    />
-  )
-}
-
 function Empty({ title, body }: { title: string; body: string }) {
   return (
     <div className="detail__empty">

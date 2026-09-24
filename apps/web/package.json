@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "node scripts/optimize-world-art.mjs && next build",
+    "build": "node scripts/optimize-world-art.mjs && node scripts/optimize-mascots.mjs && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

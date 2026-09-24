@@ -3130,6 +3130,30 @@ body { min-height: 100%; }
 .pop__out:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ===========================================================================
+   An agent's picture
+   ---------------------------------------------------------------------------
+   Sized by the component, because the same face is 38px in the panel and 26px
+   in a list. Everything that is the same wherever it appears lives here.
+   =========================================================================== */
+
+.agentav {
+  flex-shrink: 0;
+  object-fit: cover;
+  /* The supplied renders are square avatars on a near-white card rather than
+     cut-outs, so they get a rim - without one they read as a white tile. */
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.agentav--fallback {
+  display: grid;
+  place-items: center;
+  font-weight: 650;
+  color: #fff;
+  background: none;
+}
+
+/* ===========================================================================
    Renaming an agent
    ---------------------------------------------------------------------------
    The name in the panel header is a button, so it has to read as a heading

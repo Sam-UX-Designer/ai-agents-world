@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, type AgentInfo, type HistoryEntry, type Me } from '@/lib/api'
+import { mascotSrc } from '@/components/ui/AgentAvatar'
 import { Backdrop } from '@/components/world/Backdrop'
 import { Chrome } from '@/components/world/Chrome'
 import { CommandBar } from '@/components/world/World'
@@ -355,7 +356,10 @@ function Row({
 }
 
 function AgentDot({ agentKey, agents }: { agentKey: string; agents: readonly AgentInfo[] }) {
-  const [missing, setMissing] = useState(false)
+  // Keyed by agent, not a bare boolean: these are reused across agents
+  // when a list re-renders, and a bare flag stuck on the first failure.
+  const [failed, setFailed] = useState<string | null>(null)
+  const missing = failed === agentKey
   const accent = agents.find((a) => a.key === agentKey)?.accent ?? '#4DA3FF'
   const label = agentLabel(agentKey, agents)
 
@@ -374,10 +378,10 @@ function AgentDot({ agentKey, agents }: { agentKey: string; agents: readonly Age
   return (
     <img
       className="hist__dot"
-      src={`/mascots/${agentKey}.png`}
+      src={mascotSrc(agentKey)}
       alt={label}
       title={label}
-      onError={() => setMissing(true)}
+      onError={() => setFailed(agentKey)}
     />
   )
 }
