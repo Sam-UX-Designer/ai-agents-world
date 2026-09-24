@@ -496,57 +496,16 @@ body { min-height: 100%; }
   height: 0;
 }
 
-/* The uploaded mascot render, standing on its station. */
-.station__mascot {
-  position: absolute;
-  left: 50%;
-  /* Anchored by the feet, so a taller render grows upward and the character
-     still stands on the station rather than hovering over it. */
-  bottom: -8px;
-  transform: translateX(-50%);
-  width: 54px;
-  /*
-   * Tailwind's preflight sets `img { max-width: 100% }`, and the station
-   * anchor above is deliberately zero-sized - so 100% of it is 0, and every
-   * mascot collapsed to nothing the moment the renders were uploaded. It
-   * looked exactly like the files being missing, because the glow fallback
-   * only shows on a load error and these loaded fine.
-   */
-  max-width: none;
-  height: auto;
-  pointer-events: none;
-  /*
-   * Rounded and rimmed, because the supplied renders are square avatars on a
-   * near-white card rather than cut-out characters - measured, not assumed:
-   * the files carry no alpha channel and their corners read 253,253,254. Drawn
-   * raw they are white squares sitting on the island. Framed, they read as the
-   * same avatar chip the agent's card already uses, which is where these
-   * renders look right.
-   *
-   * If cut-outs with transparent backgrounds are uploaded later, this rule is
-   * the only thing to remove.
-   */
-  border-radius: 12px;
-  border: 1px solid rgb(255 255 255 / 0.22);
-  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.5));
-  transition: opacity 300ms ease, transform 300ms ease;
-}
-.station__mascot[data-state="working"],
-.station__mascot[data-state="planning"],
-.station__mascot[data-state="spawning"] {
-  animation: mascotWork 2.2s ease-in-out infinite;
-}
-
-@keyframes mascotWork {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%      { transform: translateX(-50%) translateY(-5px); }
-}
-
 /*
- * Shown until a mascot file exists.
+ * The light on a station while its agent works.
  *
- * A glow rather than a silhouette on purpose: a placeholder shaped like a
- * robot reads as the finished design and gets left in.
+ * This began as a placeholder for an agent's render standing here. The
+ * renders arrived and were drawn here for a while, directly under the card
+ * that already shows the same face - two copies of it about forty pixels
+ * apart. The picture belongs on the card; the station keeps the light.
+ *
+ * Nothing at rest, so an idle island is the artwork rather than nine glowing
+ * spots, and a pulse only while the agent is genuinely running.
  */
 .station__glow {
   position: absolute;
@@ -2750,21 +2709,6 @@ body { min-height: 100%; }
   50% { transform: translateY(-8px) scale(1.035); }
 }
 
-/* The robot on the station breathes with its card. */
-.station__mascot[data-state="working"],
-.station__mascot[data-state="planning"],
-.station__mascot[data-state="spawning"] {
-  animation: mascot-work 2.6s ease-in-out infinite;
-}
-
-@keyframes mascot-work {
-  0%, 100% { transform: translate(-50%, 0) scale(1); filter: none; }
-  50% {
-    transform: translate(-50%, -5px) scale(1.04);
-    filter: drop-shadow(0 0 14px rgb(62 155 255 / 0.55));
-  }
-}
-
 /* The placeholder glow, for stations whose mascot has not been uploaded yet.
    It stands in for the robot, so it has to show the same thing. */
 .station__glow[data-state="working"],
@@ -2831,7 +2775,7 @@ body { min-height: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   .marker[data-state="working"],
-  .station__mascot[data-state="working"],
+  .station__glow[data-state="working"],
   .routes__live { animation: none; }
 }
 

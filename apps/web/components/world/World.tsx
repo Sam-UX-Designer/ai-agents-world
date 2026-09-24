@@ -472,10 +472,9 @@ function Markers({
             data-side={side}
             style={{ left, top }}
           >
-            {/* The mascot slot, sitting on the station itself. Shows the
-                uploaded render when one exists and a soft glow until then, so
-                dropping a file into public/mascots/ is the only step needed. */}
-            <Mascot agentKey={agent.key} state={view?.state ?? 'idle'} />
+            {/* The station's own light. The agent's picture is on the card
+                above it rather than here - see Mascot. */}
+            <Mascot state={view?.state ?? 'idle'} />
 
             {/*
               The station pinging while its agent works.
@@ -894,35 +893,21 @@ function Orb({ rect, running }: { rect: CoverRect; running: boolean }) {
 }
 
 /**
- * The mascot on its station.
+ * The light on a station while its agent works.
  *
- * Tries the uploaded render first and falls back to a glow, so a missing file
- * is a quiet absence rather than a broken image icon on the artwork. The
- * fallback is deliberately not a box or a silhouette: a placeholder shaped
- * like a robot would read as the final design and get left there.
+ * This used to draw the agent's render here as well, standing on the station.
+ * With the card floating directly above it that put the same face on screen
+ * twice within about forty pixels - once as the card's picture, which is where
+ * it belongs, and once underneath it, which read as a duplicate rather than as
+ * a character. The renders are square avatars on a card, not cut-out figures,
+ * so they never stood on anything anyway.
+ *
+ * What is left is what was here before them: nothing at rest, and a soft pulse
+ * while the agent is genuinely working. The picture is still one file per
+ * agent - it is just drawn in the places it looks like a portrait.
  */
-function Mascot({ agentKey, state }: { agentKey: string; state: string }) {
-  // Keyed by agent, not a bare boolean: these are reused across agents
-  // when a list re-renders, and a bare flag stuck on the first failure.
-  const [failed, setFailed] = useState<string | null>(null)
-  const missing = failed === agentKey
-  const busy = ['planning', 'spawning', 'working'].includes(state)
-
-  if (missing) {
-    return <span className="station__glow" data-state={state} aria-hidden="true" />
-  }
-
-  return (
-    <img
-      className="station__mascot"
-      data-state={state}
-      src={mascotSrc(agentKey)}
-      alt=""
-      aria-hidden="true"
-      onError={() => setFailed(agentKey)}
-      style={busy ? undefined : { opacity: 0.9 }}
-    />
-  )
+function Mascot({ state }: { state: string }) {
+  return <span className="station__glow" data-state={state} aria-hidden="true" />
 }
 
 /** The small icon inside an agent card. Same file, smaller. */

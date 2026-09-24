@@ -8,11 +8,16 @@ having two folders for one picture was a trap. It is gone; this is the one.
 
 The file here is an agent's face everywhere it appears:
 
-- standing on its station on the island
-- the small icon inside its card
+- the icon on its card on the island
 - the picture in its detail panel
 - the row in the working-agents list
+- the agent list on a tool's page
 - the dot beside a past run in History
+
+It is not drawn standing on the station itself. It was for a while, directly
+under the card that already shows the same face, and two copies of one picture
+forty pixels apart read as a mistake rather than as a character. The station
+keeps a light that pulses while its agent works.
 
 **Name each file after the agent's key**, exactly as listed below. That is how
 the app finds it — there is no registration step. Drop the file in, reload, and
@@ -34,17 +39,15 @@ design.png
 
 ## Format
 
-- **PNG with a transparent background.** The mascot stands on the island, so
-  any background colour will show as a rectangle on the artwork.
-- **512px is plenty**, and smaller is better. It renders at 54px on the island,
-  38px in the panel and 26px in a card, so anything past 512 is bytes nobody
-  sees. The renders in here now are 1254px and about 1.4 MB each, which is
-  roughly 11 MB the home screen downloads to draw nine thumbnails.
-- **Full body, feet at the bottom edge** of the canvas, with no padding
-  underneath. The image is anchored by its feet so a taller character grows
-  upward and still stands on its station rather than floating above it.
-- **Facing forward or three-quarter.** These are viewed from an elevated
-  isometric angle, so a straight side profile reads oddly.
+- **Square, and a portrait rather than a full figure.** These are drawn small
+  and rounded, as an avatar. A transparent background is fine but no longer
+  required, because nothing is laid over the artwork any more.
+- **512px is plenty**, and smaller is better. It renders at 38px in the panel
+  and 26px on a card, so anything past 512 is bytes nobody sees. The build cuts
+  a 256px WebP from whatever is here and that is what ships, so a large upload
+  costs repository size rather than load time.
+- **Centred, with the face filling most of the canvas.** At 26px a full figure
+  is a smudge; a face reads.
 
 ## What they do once they are here
 

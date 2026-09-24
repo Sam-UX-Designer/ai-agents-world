@@ -76,13 +76,13 @@ test.describe('an agent always shows its own picture', () => {
     }
   })
 
-  test('the island draws every render it has', async ({ page }) => {
+  test('every card on the island wears its own picture, once', async ({ page }) => {
     await signIn(page)
     await page.waitForLoadState('networkidle')
 
     // Loaded, not merely present: a 404 leaves an <img> in the DOM with a
     // natural width of nothing, which no amount of reading the markup catches.
-    const stations = await page.locator('.station__mascot').evaluateAll((els) =>
+    const icons = await page.locator('.marker__icon--img').evaluateAll((els) =>
       els.map((el) => {
         const img = el as HTMLImageElement
         return {
@@ -93,13 +93,27 @@ test.describe('an agent always shows its own picture', () => {
       }),
     )
 
-    expect(stations.length, 'renders are on the island').toBeGreaterThan(0)
-    for (const s of stations) {
-      expect(s.loaded, `${s.src} did not load`).toBe(true)
-      // The preflight `img { max-width: 100% }` once collapsed every one of
-      // these to zero inside their zero-sized station anchor.
-      expect(s.width, `${s.src} rendered at no width`).toBeGreaterThan(20)
+    expect(icons.length, 'cards are wearing pictures').toBeGreaterThan(0)
+    for (const icon of icons) {
+      expect(icon.loaded, `${icon.src} did not load`).toBe(true)
+      // The preflight `img { max-width: 100% }` once collapsed a station's
+      // picture to zero inside its zero-sized anchor.
+      expect(icon.width, `${icon.src} rendered at no width`).toBeGreaterThan(10)
     }
+
+    /*
+     * And nowhere else on the island.
+     *
+     * The render was drawn on the station too for a while, directly under the
+     * card that already shows the same face - the same picture twice, about
+     * forty pixels apart. The station keeps a light instead, which is
+     * invisible at rest.
+     */
+    const onStations = await page.locator('.station img').count()
+    expect(onStations, 'a second copy of the picture is back on the island').toBe(
+      icons.length,
+    )
+    await expect(page.locator('.station__mascot')).toHaveCount(0)
   })
 
   test('the pictures are cut for the size they are drawn at', async ({ page }) => {
