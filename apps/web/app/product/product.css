@@ -1,0 +1,280 @@
+/* ===========================================================================
+   The product page
+   ---------------------------------------------------------------------------
+   The one page in this project that is not the product. It is read rather
+   than used, so it is the only surface here with a light mode: someone
+   reading it in daylight on a white laptop should be able to have a white
+   page. The app itself stays dark, because the app is a place and a place has
+   a time of day.
+
+   Tokens flip on <html data-pt>. Until the toggle has mounted the system
+   preference decides, so a light reader never gets a dark flash.
+   =========================================================================== */
+
+:root {
+  --pt-bg: #070E1A;
+  --pt-bg-2: #0B1726;
+  --pt-text: #F2F7FF;
+  --pt-dim: #A9BFDA;
+  --pt-line: rgb(255 255 255 / 0.10);
+  --pt-accent: #3E9BFF;
+  --pt-accent-ink: #061020;
+  --pt-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+  --pt-shot-edge: rgb(255 255 255 / 0.10);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-pt="dark"]) {
+    --pt-bg: #FFFFFF;
+    --pt-bg-2: #F3F7FC;
+    --pt-text: #0A1524;
+    --pt-dim: #4E6076;
+    --pt-line: rgb(10 21 36 / 0.12);
+    /* Darker than the app's blue. White text on the app's #3E9BFF is 2.6:1,
+       which fails at any size; this clears AA. */
+    --pt-accent: #1668CE;
+    --pt-accent-ink: #FFFFFF;
+    --pt-shadow: 0 24px 60px rgb(10 21 36 / 0.14);
+    --pt-shot-edge: rgb(10 21 36 / 0.14);
+  }
+}
+
+:root[data-pt="light"] {
+  --pt-bg: #FFFFFF;
+  --pt-bg-2: #F3F7FC;
+  --pt-text: #0A1524;
+  --pt-dim: #4E6076;
+  --pt-line: rgb(10 21 36 / 0.12);
+  --pt-accent: #1668CE;
+  --pt-accent-ink: #FFFFFF;
+  --pt-shadow: 0 24px 60px rgb(10 21 36 / 0.14);
+  --pt-shot-edge: rgb(10 21 36 / 0.14);
+  color-scheme: light;
+}
+
+:root[data-pt="dark"] { color-scheme: dark; }
+
+/* The app paints the body dark for every screen. This page owns its own. */
+.pt {
+  --pt-gutter: clamp(20px, 6vw, 88px);
+  --pt-max: 1240px;
+  --pt-r: 16px;
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  background: var(--pt-bg);
+  color: var(--pt-text);
+}
+
+.pt > section { padding: clamp(72px, 12vh, 150px) var(--pt-gutter); }
+.pt h1, .pt h2 { margin: 0; letter-spacing: -0.025em; text-wrap: balance; }
+.pt p { margin: 0; color: var(--pt-dim); line-height: 1.62; text-wrap: pretty; }
+
+/* --- bar -------------------------------------------------------------------- */
+.pt__bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 64px;
+  padding: 0 var(--pt-gutter);
+  background: color-mix(in srgb, var(--pt-bg) 88%, transparent);
+  border-bottom: 1px solid var(--pt-line);
+  backdrop-filter: blur(14px);
+}
+.pt__brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
+.pt__baractions { display: flex; align-items: center; gap: 10px; }
+
+.pt__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 84px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--pt-line);
+  background: transparent;
+  color: var(--pt-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 560;
+  cursor: pointer;
+}
+.pt__toggle:hover { background: color-mix(in srgb, var(--pt-text) 7%, transparent); }
+.pt__toggleicon {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1.6px solid currentColor;
+  /* Half filled: the same mark reads either way round. */
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
+/* --- buttons ----------------------------------------------------------------- */
+.pt__btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--pt-accent);
+  color: var(--pt-accent-ink);
+  font-size: 15px; font-weight: 620; text-decoration: none;
+  transition: transform 140ms ease, filter 180ms ease;
+}
+.pt__btn:hover { filter: brightness(1.08); }
+.pt__btn:active { transform: translateY(1px); }
+.pt__btn--sm { padding: 8px 16px; font-size: 13.5px; }
+.pt__btn--quiet {
+  background: transparent;
+  border-color: var(--pt-line);
+  color: var(--pt-text);
+}
+.pt__btn--quiet:hover { background: color-mix(in srgb, var(--pt-text) 7%, transparent); filter: none; }
+
+/* --- opening ------------------------------------------------------------------ */
+.pt__open { max-width: var(--pt-max); margin-inline: auto; padding-top: clamp(56px, 10vh, 110px); }
+.pt__kicker {
+  color: var(--pt-accent);
+  font-size: 13px; font-weight: 650; letter-spacing: 0.02em;
+  margin-bottom: 18px;
+}
+.pt__open h1 {
+  font-size: clamp(36px, 6.4vw, 74px);
+  line-height: 1.06;
+  font-weight: 680;
+  text-wrap: initial;
+}
+.pt__lede { max-width: 56ch; margin-top: 26px; font-size: clamp(17px, 2vw, 21px); }
+
+/* --- why ----------------------------------------------------------------------
+   Text with one pulled-out line beside it, not a headline with a floating
+   paragraph: the aside is a conclusion, so it reads last on a phone too. */
+.pt__why {
+  max-width: var(--pt-max);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 4vw, 64px);
+}
+@media (min-width: 900px) { .pt__why { grid-template-columns: 1.25fr 1fr; } }
+.pt__whytext h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
+.pt__whytext p { margin-top: 18px; max-width: 52ch; font-size: 17px; }
+.pt__whyaside {
+  align-self: end;
+  padding: 24px 26px;
+  border-left: 2px solid var(--pt-accent);
+  background: var(--pt-bg-2);
+  border-radius: 0 var(--pt-r) var(--pt-r) 0;
+}
+.pt__whyaside p { color: var(--pt-text); font-size: 17.5px; font-weight: 500; }
+
+/* --- a step in the story -------------------------------------------------------
+   The screen is the evidence, so it gets the larger half. */
+.pt__step {
+  max-width: var(--pt-max);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 4vw, 60px);
+  align-items: center;
+}
+@media (min-width: 940px) {
+  /* The screen takes twice the text. It is a detailed 3D world, and at half
+     the column it was a thumbnail of something rather than a look at it. */
+  .pt__step { grid-template-columns: 0.72fr 1.28fr; }
+}
+.pt__stepn {
+  color: var(--pt-accent);
+  font-size: 13.5px; font-weight: 640;
+  margin-bottom: 14px;
+}
+.pt__steptext h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.2; font-weight: 640; }
+.pt__steptext p { margin-top: 16px; max-width: 44ch; font-size: 16.5px; }
+
+.pt__stepshot img,
+.pt__wideshot img,
+.pt__reachshots img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--pt-r);
+  border: 1px solid var(--pt-shot-edge);
+  box-shadow: var(--pt-shadow);
+}
+
+/* --- the wide beat --------------------------------------------------------------
+   Text above, screen at full width below. */
+.pt__wide { max-width: var(--pt-max); margin-inline: auto; }
+.pt__widetext { max-width: 44ch; }
+.pt__widetext h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.2; font-weight: 640; }
+.pt__widetext p { margin-top: 16px; font-size: 16.5px; }
+.pt__wideshot { margin-top: clamp(28px, 4vw, 48px); }
+
+/* --- honesty -------------------------------------------------------------------
+   Its own band, because it is the claim everything else rests on. */
+.pt__honest { background: var(--pt-bg-2); border-block: 1px solid var(--pt-line); }
+.pt__honest > div { max-width: var(--pt-max); margin-inline: auto; }
+.pt__honest h2 {
+  font-size: clamp(26px, 3.6vw, 42px);
+  line-height: 1.14; font-weight: 650; max-width: 18ch;
+}
+.pt__honestgrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 28px;
+}
+@media (min-width: 860px) { .pt__honestgrid { grid-template-columns: 1fr 1fr; column-gap: clamp(36px, 5vw, 72px); } }
+.pt__honestgrid p { font-size: 16.5px; max-width: 46ch; }
+
+/* --- reach ---------------------------------------------------------------------- */
+.pt__reach { max-width: var(--pt-max); margin-inline: auto; }
+.pt__reachhead h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.16; font-weight: 640; max-width: 20ch; }
+.pt__reachhead p { margin-top: 18px; max-width: 58ch; font-size: 17px; }
+.pt__reachshots {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: clamp(28px, 4vw, 48px);
+}
+@media (min-width: 860px) { .pt__reachshots { grid-template-columns: 1fr 1fr; } }
+
+/* --- try ------------------------------------------------------------------------ */
+.pt__try { text-align: center; border-top: 1px solid var(--pt-line); }
+.pt__try > div { max-width: 620px; margin-inline: auto; }
+.pt__try h2 { font-size: clamp(27px, 4vw, 46px); line-height: 1.12; font-weight: 660; }
+.pt__try p { margin-top: 16px; font-size: 17px; }
+.pt__trycta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
+
+.pt__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 24px var(--pt-gutter) 32px;
+  border-top: 1px solid var(--pt-line);
+  color: var(--pt-dim);
+  font-size: 14px;
+}
+.pt__foot a { color: var(--pt-dim); text-decoration: none; }
+.pt__foot a:hover { color: var(--pt-text); }
+
+/* --- arrival --------------------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 600ms cubic-bezier(.16, 1, .3, 1),
+              transform 600ms cubic-bezier(.16, 1, .3, 1);
+}
+.reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .pt__btn { transition: none; }
+}
+
+@media (max-width: 560px) {
+  .pt__brand span:last-child { display: none; }
+  .pt__open h1 { font-size: min(36px, 8.6vw); }
+  .pt__trycta { display: grid; grid-template-columns: 1fr; }
+  .pt__trycta .pt__btn { width: 100%; }
+}
