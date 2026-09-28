@@ -1,25 +1,51 @@
 # tools/ - integration logos
 
-One file per integration, named for its id in the tool catalogue.
+One file per integration, named for its id in the tool catalogue. All fifteen
+are here: 256x256 PNG, transparent, no background of their own, because the UI
+draws the tile.
 
-Square, transparent background, at least 128x128 (256 is safer - the detail
-panel draws them at 52px on a 2x screen).
+If an integration is added and its file is missing, the card falls back to a
+lettermark rather than a broken image, so the screen stays usable.
 
-Until a file lands here the card shows a lettermark instead of a broken image,
-so the Tools screen is usable with none of these uploaded. The lettermark is
-the only thing that makes Gmail, Google Calendar and Google Drive look alike,
-which is the main reason to upload them.
+## Where these came from
 
-## Needed
+Each is the company's own mark, not a redrawing. Two sources, both of which
+publish the official asset and cite the brand's own guidelines:
 
-```
-gmail.png            google-calendar.png   google-drive.png
-slack.png            notion.png            figma.png
-github.png           meta.png              x.png
-youtube.png          hubspot.png           salesforce.png
-airtable.png         zapier.png            linear.png
-```
+- **Full colour** - the `gilbarbara/logos` collection:
+  Gmail, Google Calendar, Google Drive, Slack, Figma, Meta, YouTube,
+  Salesforce, Airtable.
+- **Single-colour glyph** - `simple-icons`, painted in the hex that brand's own
+  style guide publishes: HubSpot `#FF7A59`, Zapier `#FF4F00`,
+  Linear `#5E6AD2`, and GitHub, Notion and X in white.
 
-Use each company's official brand asset. Most publish one - do not trace or
-recreate a logo by hand, and do not place it on a coloured tile: the UI
-supplies the tile, and a logo with its own background will not match.
+`scripts/build-tool-icons.mjs` in the scratchpad that produced these is not
+kept; the mapping above is the record. To replace one, drop a 256px
+transparent PNG in here under the integration's id.
+
+## Three decisions worth knowing
+
+**Google's marks are the 2020 redesigns.** The collection carries both the old
+and the current file for Gmail, Calendar and Drive. They were rendered side by
+side and compared - the `-2020` files are the marks Google uses now.
+
+**GitHub, Notion and X are white, and Linear is purple.** The tile they sit on
+is `rgb(255 255 255 / 0.08)` over a dark card. Measured rather than eyeballed:
+the black versions came out at a mean luminance of 35 or less against it, which
+is invisible. All three brands publish a white mark for dark backgrounds, and
+Linear's own brand purple is the colour linear.app gives.
+
+**Zapier is the weak one.** Its brand asset is a wordmark, and the only square
+form available here is its app tile - an orange square with the wordmark
+knocked out. It reads as "the orange Zapier tile" at 26px rather than as
+anything legible. It is genuine, not invented, but it is the one to replace
+first if a better file turns up.
+
+## Format for a replacement
+
+- Square, transparent, 256x256.
+- The mark only. No coloured tile of its own - the UI supplies that, and a logo
+  carrying its own background will not match the others. Zapier above is the
+  one exception, and it is an exception rather than a pattern.
+- Check it against a dark background before committing it. A black mark on a
+  dark card is the failure this file exists to prevent.
