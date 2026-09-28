@@ -1473,12 +1473,28 @@ body { min-height: 100%; }
 }
 @keyframes toolshimmer { 0%, 100% { opacity: .5 } 50% { opacity: .8 } }
 
+/*
+ * A white tile, with the brand's own mark on it.
+ *
+ * It was a near-transparent wash over the dark card, which meant every logo
+ * had to be chosen for whether it survived a dark background - GitHub, Notion
+ * and X had to be swapped for their white variants, and even then the set
+ * read as a row of shapes floating on glass rather than as logos.
+ *
+ * White is what these marks are drawn for. It is also what every other
+ * product's integrations page does, for the same reason: a logo is a fixed
+ * thing, and the surface has to accommodate it rather than the other way
+ * round.
+ */
 .toolicon {
   border-radius: 12px;
   object-fit: contain;
-  background: rgb(255 255 255 / 0.08);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  padding: 6px;
+  background: #FFFFFF;
+  /* A hairline rather than a bright edge: the tile is already the lightest
+     thing on the card and does not need outlining as well. */
+  border: 1px solid rgb(255 255 255 / 0.14);
+  /* Enough that no mark touches the corner radius. */
+  padding: 7px;
 }
 
 /* Until the logo file is uploaded, a monogram - which reads as deliberate,
