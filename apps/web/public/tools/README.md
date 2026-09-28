@@ -15,9 +15,14 @@ publish the official asset and cite the brand's own guidelines:
 - **Full colour** - the `gilbarbara/logos` collection:
   Gmail, Google Calendar, Google Drive, Slack, Figma, Meta, YouTube,
   Salesforce, Airtable.
-- **Single-colour glyph** - `simple-icons`, painted in the hex that brand's own
-  style guide publishes: HubSpot `#FF7A59`, Zapier `#FF4F00`,
-  Linear `#5E6AD2`, and GitHub, Notion and X in white.
+- **Single-colour glyph** - `simple-icons`, painted in each brand's own
+  primary colour: HubSpot `#FF7A59`, Zapier `#FF4A00`, Linear `#5E6AD2`, and
+  GitHub, Notion and X in white.
+
+Every hex above was checked against the brand's own published palette rather
+than taken on trust. That caught one: simple-icons carries Zapier as `#FF4F00`,
+and Zapier's palette gives `#FF4A00`. HubSpot's coral and Linear's lavender
+came back correct.
 
 `scripts/build-tool-icons.mjs` in the scratchpad that produced these is not
 kept; the mapping above is the record. To replace one, drop a 256px
@@ -35,11 +40,13 @@ the black versions came out at a mean luminance of 35 or less against it, which
 is invisible. All three brands publish a white mark for dark backgrounds, and
 Linear's own brand purple is the colour linear.app gives.
 
-**Zapier is the weak one.** Its brand asset is a wordmark, and the only square
-form available here is its app tile - an orange square with the wordmark
-knocked out. It reads as "the orange Zapier tile" at 26px rather than as
-anything legible. It is genuine, not invented, but it is the one to replace
-first if a better file turns up.
+**Zapier is a wordmark, and that is not a mistake.** Zapier has no icon-only
+mark - their brand is the lowercase orange wordmark, confirmed against their
+own brand material. The square form here is their app tile, an orange square
+with the wordmark knocked out, which is how Zapier appears in an app grid. At
+26px it reads as "the orange Zapier tile" rather than as anything legible.
+That is the best that exists rather than a shortcut, but it is still the first
+one to replace if a better file turns up.
 
 ## Format for a replacement
 
